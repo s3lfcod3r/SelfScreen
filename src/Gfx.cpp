@@ -136,13 +136,17 @@ void gfxSplash(const char* version) {
   // buffer (in RAM) via pgm_read_word, then blit that row.
   const int logoX = (TFT_WIDTH - SELF_LOGO_W) / 2;   // (240-112)/2 = 64
   const int logoY = 16;
-  uint16_t row[SELF_LOGO_W];
+  // Blit pixel-by-pixel via writePixel inside one SPI transaction. The library's
+  // buffered writePixels()/draw16bitRGBBitmap path is not initialized on this
+  // ESP8266 HWSPI setup and faults (StoreProhibited); writePixel is the safe path.
+  gfx->startWrite();
   for (int ly = 0; ly < SELF_LOGO_H; ly++) {
     for (int lx = 0; lx < SELF_LOGO_W; lx++) {
-      row[lx] = pgm_read_word(&SELF_LOGO[ly * SELF_LOGO_W + lx]);
+      gfx->writePixel(logoX + lx, logoY + ly,
+                      pgm_read_word(&SELF_LOGO[ly * SELF_LOGO_W + lx]));
     }
-    gfx->draw16bitRGBBitmap(logoX, logoY + ly, row, SELF_LOGO_W, 1);
   }
+  gfx->endWrite();
 
   // ---- wordmark: "Self" (teal) + "Screen" (white) ----
   const uint8_t sz = 3;
