@@ -18,28 +18,16 @@
 #include "Mode.h"
 #include "Clock.h"
 
-#if WITH_TICKER
-#include "TickerMode.h"
-#endif
 #if WITH_USAGE
 #include "UsageMode.h"
-#endif
-#if WITH_RADAR
-#include "RadarMode.h"
 #endif
 
 // ---- mode registry --------------------------------------------------------
 // The compiled-in features, in display order. main.cpp holds no per-feature
 // state of its own — each mode owns its fetch/render/dirty tracking.
 static DisplayMode* kModes[] = {
-#if WITH_TICKER
-  &g_tickerMode,
-#endif
 #if WITH_USAGE
   &g_usageMode,
-#endif
-#if WITH_RADAR
-  &g_radarMode,
 #endif
 };
 static const size_t kModeCount = sizeof(kModes) / sizeof(kModes[0]);
