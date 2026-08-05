@@ -12,12 +12,13 @@ ClockMode g_clockMode;
 // per-second update never leaves ghosting and never needs a full-screen wipe.
 // A thin steel-blue accent rule sits in the gap between the time and the date;
 // it lives outside every band so no per-second clear ever erases it.
-static const int WD_BAND_Y = 24,  WD_BAND_H = 30;   // weekday (light blue)
-static const int TM_BAND_Y = 58,  TM_BAND_H = 92;   // big time (bright blue)
-static const int AP_BAND_Y = 150, AP_BAND_H = 22;   // AM/PM marker (12h only)
-static const int ACCENT_Y  = 176;                   // thin accent rule
-static const int ACCENT_W  = 96;                    // accent rule width (centred)
-static const int DT_BAND_Y = 184, DT_BAND_H = 44;   // German date (medium blue)
+// Time on top (as large as fits the width), then the weekday directly above the
+// date, both also maximised to the width. Bands are full-width and non-overlapping
+// so a per-second time update never disturbs the weekday/date below.
+static const int TM_BAND_Y = 4,   TM_BAND_H = 100;  // big time at top (max width)
+static const int AP_BAND_Y = 104, AP_BAND_H = 18;   // AM/PM marker (12h only)
+static const int WD_BAND_Y = 124, WD_BAND_H = 52;   // weekday (max width)
+static const int DT_BAND_Y = 178, DT_BAND_H = 56;   // date, directly below weekday
 
 // CLK_COL_* preset index -> RGB565 (mirrors the web UI colour <select> order).
 static uint16_t clockColor(uint8_t i) {
@@ -134,9 +135,6 @@ void ClockMode::service(const Settings& s) {
 
   if (needFull_) {
     gfx->fillScreen(C_BLACK);
-    // Thin steel-blue accent rule between the time and the date (static; sits in
-    // the gap between bands so per-second band clears never touch it).
-    gfx->fillRect((TFT_WIDTH - ACCENT_W) / 2, ACCENT_Y, ACCENT_W, 2, C_SELFBLUE_DK);
   }
 
   gfx->setFont(&FreeSansBold10pt7b);   // proportional bold for the whole face
@@ -145,7 +143,7 @@ void ClockMode::service(const Settings& s) {
   if (needFull_ || strcmp(wd, lastWd_) != 0) {
     clearBand(gfx, WD_BAND_Y, WD_BAND_H);
     if (wd[0]) {
-      gfx->setTextSize(1);
+      gfx->setTextSize(fontFit(gfx, wd, 234, 4));   // weekday as wide as fits
       drawFontCentered(gfx, wd, WD_BAND_Y, WD_BAND_H, dateCol);
     }
     strlcpy(lastWd_, wd, sizeof(lastWd_));
@@ -155,7 +153,7 @@ void ClockMode::service(const Settings& s) {
   if (needFull_ || strcmp(tm, lastTime_) != 0) {
     clearBand(gfx, TM_BAND_Y, TM_BAND_H);
     clearBand(gfx, AP_BAND_Y, AP_BAND_H);
-    uint8_t sz = fontFit(gfx, tm, 232, f.bigSize ? 3 : 2);
+    uint8_t sz = fontFit(gfx, tm, 234, f.bigSize ? 5 : 3);   // big time, max width
     gfx->setTextSize(sz);
     drawFontCentered(gfx, tm, TM_BAND_Y, TM_BAND_H, timeCol);
     if (ap[0]) {
@@ -169,7 +167,7 @@ void ClockMode::service(const Settings& s) {
   if (needFull_ || strcmp(dt, lastDate_) != 0) {
     clearBand(gfx, DT_BAND_Y, DT_BAND_H);
     if (dt[0]) {
-      gfx->setTextSize(1);
+      gfx->setTextSize(fontFit(gfx, dt, 234, 4));   // date as wide as fits
       drawFontCentered(gfx, dt, DT_BAND_Y, DT_BAND_H, dateCol);
     }
     strlcpy(lastDate_, dt, sizeof(lastDate_));
