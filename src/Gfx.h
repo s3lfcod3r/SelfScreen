@@ -18,6 +18,7 @@ class Arduino_GFX;   // fwd-decl: only the drawing .cpp files pull in the full l
 #define C_DGRAY  0x4208
 #define C_YELLOW 0xFFE0
 #define C_BLUE   0x041F
+#define C_TEAL   0x2EB7   // SelfScreen brand teal (~#2dd4bf)
 
 // ---- Device lifecycle -----------------------------------------------------
 void         gfxBegin(const Settings& s);
@@ -32,6 +33,7 @@ uint8_t gfxFitSize(const char* s, int maxW, uint8_t maxSize);
 
 // ---- Shared boot / status / diagnostic screens ----------------------------
 void gfxBoot(const char* line1, const char* line2);
+void gfxSplash(const char* version);   // SelfScreen branded boot splash
 void gfxApInfo(const char* ssid, const char* pass, const char* ip);
 void gfxStaInfo(const char* ssid, const char* ip, const char* host);
 void gfxMessage(const char* title, const char* msg, uint16_t titleColor);

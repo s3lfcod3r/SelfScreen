@@ -134,7 +134,7 @@ void appInvalidate() {
 }
 
 static void bootProgress(const char* msg) {
-  gfxBoot("SmallTV", msg);
+  gfxBoot("SelfScreen", msg);
 }
 
 void setup() {
@@ -168,7 +168,8 @@ void setup() {
 
   Serial.println("[boot] display");
   gfxBegin(g_settings);
-  gfxBoot(g_safeMode ? "Crashed" : "SmallTV", FW_VERSION);
+  if (g_safeMode) gfxBoot("Crashed", FW_VERSION);
+  else            gfxSplash(FW_VERSION);
 
   Serial.println("[boot] net");
   netBegin(g_settings, bootProgress);
@@ -184,9 +185,9 @@ void setup() {
   // On success it reboots into the new image; a no-op stub on the ESP32 targets.
   if (otaBootRequested()) {
     Serial.println("[boot] github update");
-    gfxBoot("SmallTV", "updating...");
+    gfxBoot("SelfScreen", "updating...");
     otaBootUpdate(g_settings);
-    gfxBoot("SmallTV", "update failed");   // still here -> failed; details in the web UI
+    gfxBoot("SelfScreen", "update failed");   // still here -> failed; details in the web UI
     delay(1200);
   }
 

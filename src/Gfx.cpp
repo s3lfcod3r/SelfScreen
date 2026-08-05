@@ -121,6 +121,36 @@ void gfxBoot(const char* line1, const char* line2) {
   if (line2 && line2[0]) gfxDrawCentered(line2, 130, 2, C_GRAY);
 }
 
+// SelfScreen branded boot splash: two-tone "Self"+"Screen" wordmark with a teal
+// accent underline and the firmware version. Shown on every normal boot.
+void gfxSplash(const char* version) {
+  if (!gfx) return;
+  gfx->fillScreen(C_BLACK);
+  const uint8_t sz = 3;
+  const char* a = "Self";
+  const char* b = "Screen";
+  int wa = gfxTextW(a, sz);
+  int wb = gfxTextW(b, sz);
+  int total = wa + wb;
+  int x0 = (TFT_WIDTH - total) / 2;
+  if (x0 < 0) x0 = 0;
+  const int y = 96;
+  gfx->setTextSize(sz);
+  gfx->setTextColor(C_TEAL);
+  gfx->setCursor(x0, y);
+  gfx->print(a);
+  gfx->setTextColor(C_WHITE);
+  gfx->setCursor(x0 + wa, y);
+  gfx->print(b);
+  // teal accent underline under the wordmark
+  gfx->fillRect(x0, y + 8 * sz + 6, total, 3, C_TEAL);
+  if (version && version[0]) {
+    char vb[24];
+    snprintf(vb, sizeof(vb), "v%s", version);
+    gfxDrawCentered(vb, y + 8 * sz + 18, 2, C_GRAY);
+  }
+}
+
 void gfxApInfo(const char* ssid, const char* pass, const char* ip) {
   if (!gfx) return;
   gfx->fillScreen(C_BLACK);
