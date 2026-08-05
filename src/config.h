@@ -1,4 +1,4 @@
-// config.h — compile-time constants for smalltv-mod
+// config.h — compile-time constants for SelfScreen (based on smalltv-mod)
 //
 // Hardware: three board variants, all a 1.54" 240x240 ST7789 IPS panel:
 //   - Original GeekMagic SmallTV: ESP-12F (ESP8266)      [board_esp8266.h]
@@ -11,22 +11,22 @@
 // ---------------------------------------------------------------------------
 // Firmware identity
 // ---------------------------------------------------------------------------
-#define FW_NAME     "smalltv-mod"
+#define FW_NAME     "SelfScreen"
 #define FW_VERSION  "2.8.2"
 
 // Project / update references (shown in the web UI; used by the GitHub self-update)
-#define REPO_URL      "https://github.com/giovi321/smalltv-mod"
-#define REPO_OWNER    "giovi321"
-#define REPO_NAME     "smalltv-mod"
+#define REPO_URL      "https://github.com/s3lfcod3r/SelfScreen"
+#define REPO_OWNER    "s3lfcod3r"
+#define REPO_NAME     "SelfScreen"
 // Release asset the GitHub self-updater pulls — one app image per target.
 #if defined(SMALLTV_ESP32C2)
-  #define UPDATE_ASSET "smalltv-mod-firmware-c2.bin"
+  #define UPDATE_ASSET "selfscreen-firmware-c2.bin"
 #elif defined(SMALLTV_ESP32_PRO)
-  #define UPDATE_ASSET "smalltv-mod-firmware-esp32-pro.bin"
+  #define UPDATE_ASSET "selfscreen-firmware-esp32-pro.bin"
 #elif defined(SMALLTV_ESP32)
-  #define UPDATE_ASSET "smalltv-mod-firmware-esp32.bin"
+  #define UPDATE_ASSET "selfscreen-firmware-esp32.bin"
 #else
-  #define UPDATE_ASSET "smalltv-mod-firmware.bin"
+  #define UPDATE_ASSET "selfscreen-firmware.bin"
 #endif
 #define GH_API_HOST   "api.github.com"
 #define DAEMON_URL    "https://github.com/giovi321/clawdmeter-daemon"
@@ -66,11 +66,11 @@
 //   2 = plane radar
 //   3 = carousel: rotate through the ticked features on a timer
 // ---------------------------------------------------------------------------
-#define MODE_STOCKS    0
+#define MODE_STOCKS    0    // retired (ticker feature removed); kept for config back-compat
 #define MODE_USAGE     1
-#define MODE_RADAR     2
+#define MODE_RADAR     2    // retired (radar feature removed); kept for config back-compat
 #define MODE_CAROUSEL  3
-#define DEFAULT_MODE MODE_STOCKS
+#define DEFAULT_MODE MODE_USAGE
 #define DEFAULT_CAROUSEL_SEC 30      // per-mode dwell in carousel
 
 // ---------------------------------------------------------------------------
@@ -80,13 +80,13 @@
 // (WITH_RADAR ships off until the radar module lands.)
 // ---------------------------------------------------------------------------
 #ifndef WITH_TICKER
-#define WITH_TICKER 1
+#define WITH_TICKER 0    // ticker feature removed in SelfScreen
 #endif
 #ifndef WITH_USAGE
 #define WITH_USAGE 1
 #endif
 #ifndef WITH_RADAR
-#define WITH_RADAR 1
+#define WITH_RADAR 0     // radar feature removed in SelfScreen
 #endif
 
 // Claude usage mode: once data stops arriving for this long (PC asleep, daemon

@@ -121,11 +121,28 @@ void gfxBoot(const char* line1, const char* line2) {
   if (line2 && line2[0]) gfxDrawCentered(line2, 130, 2, C_GRAY);
 }
 
-// SelfScreen branded boot splash: two-tone "Self"+"Screen" wordmark with a teal
-// accent underline and the firmware version. Shown on every normal boot.
+// SelfScreen branded boot splash: an app-icon-style teal logo mark (rounded
+// square with a bold white "S"), the two-tone "Self"+"Screen" wordmark with a
+// teal accent underline, and the firmware version. Shown on every normal boot.
 void gfxSplash(const char* version) {
   if (!gfx) return;
   gfx->fillScreen(C_BLACK);
+
+  // ---- logo mark: 64x64 teal rounded square, centered horizontally ----
+  const int logoSz = 64;
+  const int logoX  = (TFT_WIDTH - logoSz) / 2;
+  const int logoY  = 40;
+  gfx->fillRoundRect(logoX, logoY, logoSz, logoSz, 14, C_TEAL);
+  // bold white "S" centered inside the mark (6x8 base font, size 5 -> 30x40 px)
+  const uint8_t logoTextSz = 5;
+  const int glyphW = 6 * logoTextSz;
+  const int glyphH = 8 * logoTextSz;
+  gfx->setTextSize(logoTextSz);
+  gfx->setTextColor(C_WHITE);
+  gfx->setCursor(logoX + (logoSz - glyphW) / 2, logoY + (logoSz - glyphH) / 2);
+  gfx->print("S");
+
+  // ---- wordmark: "Self" (teal) + "Screen" (white) ----
   const uint8_t sz = 3;
   const char* a = "Self";
   const char* b = "Screen";
@@ -134,7 +151,7 @@ void gfxSplash(const char* version) {
   int total = wa + wb;
   int x0 = (TFT_WIDTH - total) / 2;
   if (x0 < 0) x0 = 0;
-  const int y = 96;
+  const int y = logoY + logoSz + 20;   // below the logo mark
   gfx->setTextSize(sz);
   gfx->setTextColor(C_TEAL);
   gfx->setCursor(x0, y);

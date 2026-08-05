@@ -6,7 +6,9 @@
 #include "Net.h"
 #include "Gfx.h"
 #include "OtaUpdate.h"
+#if WITH_TICKER
 #include "StockClient.h"
+#endif
 #include "UsageClient.h"
 #include "Clock.h"
 

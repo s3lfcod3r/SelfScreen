@@ -1,10 +1,9 @@
-// smalltv-mod — custom firmware for the GeekMagic SmallTV (ESP-12F / ESP8266)
+// SelfScreen — custom firmware for the GeekMagic SmallTV (ESP-12F / ESP8266)
+// (based on giovi321/smalltv-mod)
 //
-// Three features, each a self-contained DisplayMode (see Mode.h), picked in the
-// web UI and dispatched from the registry below:
-//   - Ticker (features/ticker):  stock/crypto price, % change, sparkline.
+// Features are self-contained DisplayModes (see Mode.h), picked in the web UI
+// and dispatched from the registry below:
 //   - Usage  (features/usage):   Claude 5h/7d usage bars + animated mascot.
-//   - Radar  (features/radar):   live ADS-B plane radar (compiled in when WITH_RADAR).
 // Shared plumbing (WiFi, web UI, OTA, display core, settings) lives at src root.
 //
 // License: WTFPL
@@ -53,9 +52,7 @@ static uint32_t g_carSwitch = 0;
 
 static bool carouselHas(const Settings& s, const DisplayMode* m) {
   switch (m->modeConst()) {
-    case MODE_STOCKS: return s.carouselTicker;
     case MODE_USAGE:  return s.carouselUsage;
-    case MODE_RADAR:  return s.carouselRadar;
     default:          return true;
   }
 }
