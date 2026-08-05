@@ -161,8 +161,13 @@ void setup() {
 
   Serial.println("[boot] display");
   gfxBegin(g_settings);
-  if (g_safeMode) gfxBoot("Crashed", FW_VERSION);
-  else            gfxSplash(FW_VERSION);
+  if (g_safeMode) {
+    gfxBoot("Crashed", FW_VERSION);
+  } else {
+    gfxSplash(FW_VERSION);
+    delay(2200);   // hold the logo splash so it's actually seen before the
+                   // WiFi boot-progress text (bootProgress) overwrites it
+  }
 
   Serial.println("[boot] net");
   netBegin(g_settings, bootProgress);
