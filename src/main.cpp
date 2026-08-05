@@ -3,6 +3,7 @@
 //
 // Features are self-contained DisplayModes (see Mode.h), picked in the web UI
 // and dispatched from the registry below:
+//   - Clock  (features/clock):   SNTP time + date face (configurable).
 //   - Usage  (features/usage):   Claude 5h/7d usage bars + animated mascot.
 // Shared plumbing (WiFi, web UI, OTA, display core, settings) lives at src root.
 //
@@ -21,11 +22,17 @@
 #if WITH_USAGE
 #include "UsageMode.h"
 #endif
+#if WITH_CLOCK
+#include "ClockMode.h"
+#endif
 
 // ---- mode registry --------------------------------------------------------
 // The compiled-in features, in display order. main.cpp holds no per-feature
 // state of its own — each mode owns its fetch/render/dirty tracking.
 static DisplayMode* kModes[] = {
+#if WITH_CLOCK
+  &g_clockMode,
+#endif
 #if WITH_USAGE
   &g_usageMode,
 #endif
@@ -41,6 +48,7 @@ static uint32_t g_carSwitch = 0;
 static bool carouselHas(const Settings& s, const DisplayMode* m) {
   switch (m->modeConst()) {
     case MODE_USAGE:  return s.carouselUsage;
+    case MODE_CLOCK:  return s.carouselClock;
     default:          return true;
   }
 }

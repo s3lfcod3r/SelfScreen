@@ -38,13 +38,23 @@ void clockBegin(const Settings& s) {
   s_ntpStarted = true;
 }
 
+// SNTP is a permanent mid-arena heap allocation, so it only runs when a feature
+// actually needs the wall clock: night mode (drives the schedule) OR a visible
+// clock face (the active mode is MODE_CLOCK, or the carousel is active with the
+// clock ticked). A usage-only device never pays the SNTP heap cost.
+static bool clockNeedsNtp(const Settings& s) {
+  if (s.clock.nightEnabled) return true;
+  if (s.mode == MODE_CLOCK) return true;
+  if (s.mode == MODE_CAROUSEL && s.carouselClock) return true;
+  return false;
+}
+
 void clockReapply(const Settings& s) {
-  // SNTP only runs when night mode needs it. Starting the lwIP SNTP client is a
-  // permanent mid-arena heap allocation, and on the memory-tight ESP8266 that can
-  // fragment the largest contiguous block below what the cash.ch TLS handshake
-  // needs (blanking those tickers). So arm on the first enable, re-arm on a
-  // timezone change, and never start it while night mode is off.
-  if (!s.clock.nightEnabled) return;
+  // Starting the lwIP SNTP client fragments the largest contiguous block, which on
+  // the memory-tight ESP8266 can drop it below what the cash.ch TLS handshake needs.
+  // So arm only when a feature needs the clock, arm on the first enable, and re-arm
+  // on a timezone change. (Called at boot and after every settings save.)
+  if (!clockNeedsNtp(s)) return;
   if (!s_ntpStarted || s.clock.tzPosix != s_armedTz) clockBegin(s);
 }
 

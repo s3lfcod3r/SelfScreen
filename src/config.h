@@ -70,7 +70,8 @@
 #define MODE_USAGE     1
 #define MODE_RADAR     2    // retired (radar feature removed); kept for config back-compat
 #define MODE_CAROUSEL  3
-#define DEFAULT_MODE MODE_USAGE
+#define MODE_CLOCK     4    // time + date face (fed by SNTP, see Clock.*)
+#define DEFAULT_MODE MODE_CLOCK
 #define DEFAULT_CAROUSEL_SEC 30      // per-mode dwell in carousel
 
 // ---------------------------------------------------------------------------
@@ -85,9 +86,38 @@
 #ifndef WITH_USAGE
 #define WITH_USAGE 1
 #endif
+#ifndef WITH_CLOCK
+#define WITH_CLOCK 1     // time + date face
+#endif
 #ifndef WITH_RADAR
 #define WITH_RADAR 0     // radar feature removed in SelfScreen
 #endif
+
+// ---------------------------------------------------------------------------
+// Clock face (MODE_CLOCK) — display options, all configurable in the web UI.
+// Colours are stored as a small preset index (see clockColor() in ClockMode.cpp);
+// the same order is mirrored in the web UI's colour <select>.
+// ---------------------------------------------------------------------------
+#define CLK_DATE_DMY   0    // DD.MM.YYYY
+#define CLK_DATE_YMD   1    // YYYY-MM-DD
+#define CLK_DATE_DM    2    // DD.MM
+#define CLK_DATE_OFF   3    // no date line
+
+#define CLK_COL_WHITE  0
+#define CLK_COL_TEAL   1
+#define CLK_COL_GREEN  2
+#define CLK_COL_YELLOW 3
+#define CLK_COL_RED    4
+#define CLK_COL_BLUE   5
+#define CLK_COL_GRAY   6
+
+#define DEFAULT_CLK_24H        true
+#define DEFAULT_CLK_SECONDS    false
+#define DEFAULT_CLK_WEEKDAY    true
+#define DEFAULT_CLK_DATEFMT    CLK_DATE_DMY
+#define DEFAULT_CLK_TIMECOLOR  CLK_COL_TEAL
+#define DEFAULT_CLK_DATECOLOR  CLK_COL_GRAY
+#define DEFAULT_CLK_BIG        true
 
 // Claude usage mode: once data stops arriving for this long (PC asleep, daemon
 // stopped, network down) the screen switches from the stats to the idle mascot

@@ -1,7 +1,8 @@
 // webui.h — single-page config UI served from PROGMEM
 //
-// Tabs: shared Status/WiFi/Display/Update plus the Usage feature tab. The config
-// JSON mirrors the nested Settings layout: { ..shared.., usage:{...} }.
+// Tabs: shared Status/WiFi/Display/Update plus the Clock and Usage feature tabs.
+// The config JSON mirrors the nested Settings layout:
+// { ..shared.., clockFace:{...}, usage:{...} }.
 #pragma once
 #include <Arduino.h>
 
@@ -59,6 +60,7 @@ small.hint{display:block;color:var(--mut);margin-top:4px;font-size:12px}
  <button data-t="status" class="active">Status</button>
  <button data-t="wifi">WiFi</button>
  <button data-t="display">Display</button>
+ <button data-t="clock">Clock</button>
  <button data-t="usage">Usage</button>
  <button data-t="update">Update</button>
 </nav>
@@ -95,11 +97,13 @@ small.hint{display:block;color:var(--mut);margin-top:4px;font-size:12px}
   <div class="card"><h2>Mode</h2>
    <label>What this device shows</label>
    <select id="mode" onchange="modeChanged()">
+    <option value="clock">Clock</option>
     <option value="usage">Claude usage</option>
     <option value="carousel">Carousel (rotate modes)</option>
    </select>
    <div id="carouselRow">
     <label>Switch mode every (s)</label><input id="carouselSec" type="number" min="5" max="3600">
+    <div class="chk"><input id="carouselClock" type="checkbox"><label>Clock</label></div>
     <div class="chk"><input id="carouselUsage" type="checkbox"><label>Claude usage</label></div>
    </div>
    <small class="hint">Pick the active feature, then configure it in its own tab. Carousel rotates through the ticked features.</small>
@@ -125,6 +129,37 @@ small.hint{display:block;color:var(--mut);margin-top:4px;font-size:12px}
    <label>Night brightness: <span id="nlVal"></span>% <span class="muted">(0 = screen off)</span></label>
    <input id="nightLevel" type="range" min="0" max="100" oninput="nlVal.textContent=this.value">
    <small class="hint">Needs internet once to set the clock over NTP (no on-screen clock, this just drives the schedule). While the window is active it overrides the brightness and auto-brightness above. Times are local to the selected timezone; DST is handled automatically. After a reboot the schedule resumes once the clock re-syncs, so the screen may show normal brightness for a few seconds.</small>
+  </div>
+ </section>
+
+ <!-- CLOCK (feature) -->
+ <section id="clock" class="tab">
+  <div class="card"><h2>Clock face</h2>
+   <div class="chk"><input id="clk24" type="checkbox"><label>24-hour time (off = 12-hour with AM/PM)</label></div>
+   <div class="chk"><input id="clkSeconds" type="checkbox"><label>Show seconds</label></div>
+   <div class="chk"><input id="clkWeekday" type="checkbox"><label>Show weekday (Mon, Tue, ...)</label></div>
+   <label>Date format</label>
+   <select id="clkDateFmt">
+    <option value="0">DD.MM.YYYY</option>
+    <option value="1">YYYY-MM-DD</option>
+    <option value="2">DD.MM</option>
+    <option value="3">Off (no date)</option>
+   </select>
+   <div class="row">
+    <div><label>Time colour</label>
+     <select id="clkTimeColor">
+      <option value="0">White</option><option value="1">Teal</option><option value="2">Green</option>
+      <option value="3">Yellow</option><option value="4">Red</option><option value="5">Blue</option><option value="6">Gray</option>
+     </select></div>
+    <div><label>Date colour</label>
+     <select id="clkDateColor">
+      <option value="0">White</option><option value="1">Teal</option><option value="2">Green</option>
+      <option value="3">Yellow</option><option value="4">Red</option><option value="5">Blue</option><option value="6">Gray</option>
+     </select></div>
+   </div>
+   <label>Text size</label>
+   <select id="clkBig"><option value="1">Big</option><option value="0">Small</option></select>
+   <small class="hint">The clock is driven by NTP, which the device syncs automatically whenever the clock face is shown (or night mode is on). Set your timezone in the <b>Display</b> tab. Until the first sync lands the screen shows <code>--:--</code>.</small>
   </div>
  </section>
 
@@ -246,9 +281,17 @@ function loadConfig(){return j('/api/config').then(function(c){C=c;
  sv('tz',ck.tz||''); sc('nightEnabled',!!ck.nightEnabled);
  sv('nightStart',ck.nightStart||'22:00'); sv('nightEnd',ck.nightEnd||'07:00');
  sv('nightLevel',ck.nightLevel!=null?ck.nightLevel:0); $('nlVal')&&($('nlVal').textContent=(ck.nightLevel!=null?ck.nightLevel:0));
- $('mode').value=c.mode||'usage'; modeChanged();
+ $('mode').value=c.mode||'clock'; modeChanged();
  sv('carouselSec',c.carouselSec||30);
+ sc('carouselClock',c.carouselClock!==false);
  sc('carouselUsage',c.carouselUsage!==false);
+ // clock face slice
+ var cf=c.clockFace||{};
+ sc('clk24',cf.hour24!==false); sc('clkSeconds',!!cf.showSeconds); sc('clkWeekday',cf.showWeekday!==false);
+ sv('clkDateFmt',cf.dateFormat!=null?cf.dateFormat:0);
+ sv('clkTimeColor',cf.timeColor!=null?cf.timeColor:1);
+ sv('clkDateColor',cf.dateColor!=null?cf.dateColor:6);
+ sv('clkBig',cf.bigSize!==false?1:0);
  // usage slice
  sv('usageUrl',u.usageUrl);
  sv('usagePollSec',u.pollSec);
@@ -260,6 +303,7 @@ function esc(s){return (''+(s==null?'':s)).replace(/[<>&"]/g,function(c){return 
 function collect(){
  var o={mode:gv('mode'),
   carouselSec:parseInt(gv('carouselSec'))||30,
+  carouselClock:gc('carouselClock'),
   carouselUsage:gc('carouselUsage'),
   brightness:parseInt(gv('brightness'))||0,
   rotation:parseInt(gv('rotation')),
@@ -267,6 +311,10 @@ function collect(){
   backlightInverted:gc('backlightInverted'),
   hostname:gv('hostname'), apSsid:gv('apSsid'), apPass:gv('apPass'),
   wifi:collectWifi()};
+ // clock face slice
+ if($('clk24')) o.clockFace={hour24:gc('clk24'),showSeconds:gc('clkSeconds'),showWeekday:gc('clkWeekday'),
+  dateFormat:parseInt(gv('clkDateFmt'))||0,timeColor:parseInt(gv('clkTimeColor'))||0,
+  dateColor:parseInt(gv('clkDateColor'))||0,bigSize:gv('clkBig')==='1'};
  // usage slice
  if($('usage')) o.usage={usageUrl:gv('usageUrl'), pollSec:parseInt(gv('usagePollSec'))||0};
  // clock slice

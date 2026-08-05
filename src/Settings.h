@@ -27,6 +27,21 @@ struct UsageSettings {
   void fromJson(JsonObjectConst o);
 };
 
+// ---- Clock face feature slice (MODE_CLOCK display options) ------------------
+struct ClockFaceSettings {
+  bool    hour24;      // true = 24h, false = 12h (with AM/PM)
+  bool    showSeconds; // append :SS to the time
+  bool    showWeekday; // show the weekday name (English, ASCII)
+  uint8_t dateFormat;  // CLK_DATE_* (DMY / YMD / DM / OFF)
+  uint8_t timeColor;   // CLK_COL_* preset index
+  uint8_t dateColor;   // CLK_COL_* preset index
+  bool    bigSize;     // true = big time, false = smaller
+
+  void setDefaults();
+  void toJson(JsonObject o) const;
+  void fromJson(JsonObjectConst o);
+};
+
 // ---- Clock / night mode slice (device-wide) --------------------------------
 struct ClockSettings {
   String   tz;            // IANA display name, e.g. "Europe/Rome" (UI round-trip)
@@ -58,6 +73,7 @@ struct Settings {
   // --- Carousel (mode == MODE_CAROUSEL): dwell + which features rotate ---
   uint16_t carouselSec;
   bool carouselUsage;
+  bool carouselClock;
 
   // --- Shared HTTP / display ---
   uint16_t httpTimeout; // ms
@@ -67,8 +83,9 @@ struct Settings {
   uint8_t  rotation;          // 0..3 screen orientation
 
   // --- Feature slices ---
-  UsageSettings  usage;
-  ClockSettings  clock;
+  UsageSettings     usage;
+  ClockFaceSettings clockFace;
+  ClockSettings     clock;
 
   void setDefaults();
 };

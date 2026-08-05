@@ -23,6 +23,39 @@ void UsageSettings::fromJson(JsonObjectConst o) {
 }
 
 // ===========================================================================
+// Clock face slice (MODE_CLOCK display options)
+// ===========================================================================
+void ClockFaceSettings::setDefaults() {
+  hour24      = DEFAULT_CLK_24H;
+  showSeconds = DEFAULT_CLK_SECONDS;
+  showWeekday = DEFAULT_CLK_WEEKDAY;
+  dateFormat  = DEFAULT_CLK_DATEFMT;
+  timeColor   = DEFAULT_CLK_TIMECOLOR;
+  dateColor   = DEFAULT_CLK_DATECOLOR;
+  bigSize     = DEFAULT_CLK_BIG;
+}
+
+void ClockFaceSettings::toJson(JsonObject o) const {
+  o["hour24"]      = hour24;
+  o["showSeconds"] = showSeconds;
+  o["showWeekday"] = showWeekday;
+  o["dateFormat"]  = dateFormat;
+  o["timeColor"]   = timeColor;
+  o["dateColor"]   = dateColor;
+  o["bigSize"]     = bigSize;
+}
+
+void ClockFaceSettings::fromJson(JsonObjectConst o) {
+  if (o["hour24"].is<bool>())      hour24 = o["hour24"];
+  if (o["showSeconds"].is<bool>()) showSeconds = o["showSeconds"];
+  if (o["showWeekday"].is<bool>()) showWeekday = o["showWeekday"];
+  if (o["dateFormat"].is<int>())   dateFormat = (uint8_t)constrain((int)o["dateFormat"], 0, CLK_DATE_OFF);
+  if (o["timeColor"].is<int>())    timeColor = (uint8_t)constrain((int)o["timeColor"], 0, CLK_COL_GRAY);
+  if (o["dateColor"].is<int>())    dateColor = (uint8_t)constrain((int)o["dateColor"], 0, CLK_COL_GRAY);
+  if (o["bigSize"].is<bool>())     bigSize = o["bigSize"];
+}
+
+// ===========================================================================
 // Clock / night mode slice
 // ===========================================================================
 static uint16_t hhmmToMin(const char* s, uint16_t fallback) {
@@ -84,6 +117,7 @@ void Settings::setDefaults() {
   mode = DEFAULT_MODE;
   carouselSec = DEFAULT_CAROUSEL_SEC;
   carouselUsage = true;
+  carouselClock = true;
   httpTimeout = DEFAULT_HTTP_TIMEOUT;
 
   brightness = DEFAULT_BRIGHTNESS;
@@ -92,6 +126,7 @@ void Settings::setDefaults() {
   rotation = 0;
 
   usage.setDefaults();
+  clockFace.setDefaults();
   clock.setDefaults();
 }
 
@@ -158,9 +193,11 @@ void settingsToJson(const Settings& s, JsonObject root, bool includeSecrets) {
   }
 
   // Mode + shared HTTP/display
-  root["mode"]              = (s.mode == MODE_CAROUSEL) ? "carousel" : "usage";
+  root["mode"]              = (s.mode == MODE_CAROUSEL) ? "carousel"
+                            : (s.mode == MODE_CLOCK)    ? "clock" : "usage";
   root["carouselSec"]       = s.carouselSec;
   root["carouselUsage"]     = s.carouselUsage;
+  root["carouselClock"]     = s.carouselClock;
   root["httpTimeout"]       = s.httpTimeout;
   root["brightness"]        = s.brightness;
   root["autoBrightness"]    = s.autoBrightness;
@@ -169,6 +206,7 @@ void settingsToJson(const Settings& s, JsonObject root, bool includeSecrets) {
 
   // Feature slices
   s.usage.toJson(root["usage"].to<JsonObject>());
+  s.clockFace.toJson(root["clockFace"].to<JsonObject>());
   s.clock.toJson(root["clock"].to<JsonObject>());
 }
 
@@ -218,11 +256,13 @@ void settingsApplyJson(Settings& s, JsonObjectConst root) {
 
   if (root["mode"].is<const char*>()) {
     String m = root["mode"].as<String>();
-    // Retired modes (stocks/radar) fall back to usage; carousel is still valid.
-    s.mode = m.equalsIgnoreCase("carousel") ? MODE_CAROUSEL : MODE_USAGE;
+    // Retired modes (stocks/radar) fall back to usage; carousel and clock are valid.
+    s.mode = m.equalsIgnoreCase("carousel") ? MODE_CAROUSEL
+           : m.equalsIgnoreCase("clock")    ? MODE_CLOCK : MODE_USAGE;
   }
   if (root["carouselSec"].is<int>())      s.carouselSec = constrain((int)root["carouselSec"], 5, 3600);
   if (root["carouselUsage"].is<bool>())   s.carouselUsage = root["carouselUsage"];
+  if (root["carouselClock"].is<bool>())   s.carouselClock = root["carouselClock"];
 
   if (root["httpTimeout"].is<int>())        s.httpTimeout = constrain((int)root["httpTimeout"], 1000, 20000);
   if (root["brightness"].is<int>())         s.brightness = constrain((int)root["brightness"], 0, 100);
@@ -234,5 +274,6 @@ void settingsApplyJson(Settings& s, JsonObjectConst root) {
   // legacy flat config.json (or a legacy POST) still applies.
   JsonObjectConst u = root["usage"].is<JsonObjectConst>() ? root["usage"].as<JsonObjectConst>() : root;
   s.usage.fromJson(u);
+  if (root["clockFace"].is<JsonObjectConst>()) s.clockFace.fromJson(root["clockFace"].as<JsonObjectConst>());
   if (root["clock"].is<JsonObjectConst>()) s.clock.fromJson(root["clock"].as<JsonObjectConst>());
 }
