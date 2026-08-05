@@ -49,9 +49,9 @@ void ClockFaceSettings::fromJson(JsonObjectConst o) {
   if (o["hour24"].is<bool>())      hour24 = o["hour24"];
   if (o["showSeconds"].is<bool>()) showSeconds = o["showSeconds"];
   if (o["showWeekday"].is<bool>()) showWeekday = o["showWeekday"];
-  if (o["dateFormat"].is<int>())   dateFormat = (uint8_t)constrain((int)o["dateFormat"], 0, CLK_DATE_OFF);
-  if (o["timeColor"].is<int>())    timeColor = (uint8_t)constrain((int)o["timeColor"], 0, CLK_COL_GRAY);
-  if (o["dateColor"].is<int>())    dateColor = (uint8_t)constrain((int)o["dateColor"], 0, CLK_COL_GRAY);
+  if (o["dateFormat"].is<int>())   dateFormat = (uint8_t)constrain((int)o["dateFormat"], 0, CLK_DATE_MAX);
+  if (o["timeColor"].is<int>())    timeColor = (uint8_t)constrain((int)o["timeColor"], 0, CLK_COL_MAX);
+  if (o["dateColor"].is<int>())    dateColor = (uint8_t)constrain((int)o["dateColor"], 0, CLK_COL_MAX);
   if (o["bigSize"].is<bool>())     bigSize = o["bigSize"];
 }
 

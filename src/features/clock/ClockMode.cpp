@@ -3,36 +3,46 @@
 #include <time.h>
 #include "Gfx.h"
 #include "Clock.h"
+#include "FreeSansBold10pt7b.h"   // vendored Adafruit-GFX bold font (ASCII 0x20-0x7E, ~2.2 KB)
 
 ClockMode g_clockMode;
 
 // --- layout (240x240) ------------------------------------------------------
-// Three stacked bands, each cleared to black before its text is (re)drawn so a
+// Four stacked bands, each cleared to black before its text is (re)drawn so a
 // per-second update never leaves ghosting and never needs a full-screen wipe.
-static const int WD_Y      = 40;                 // weekday line top
-static const int TIME_Y    = 96;                 // big time line top
-static const int AMPM_Y    = 162;                // small AM/PM (12h only)
-static const int DATE_Y    = 194;                // date line top
-static const int WD_BAND_Y = 36,  WD_BAND_H = 30;
-static const int TM_BAND_Y = 88,  TM_BAND_H = 96;  // covers time + AM/PM
-static const int DT_BAND_Y = 186, DT_BAND_H = 40;
+// A thin steel-blue accent rule sits in the gap between the time and the date;
+// it lives outside every band so no per-second clear ever erases it.
+static const int WD_BAND_Y = 24,  WD_BAND_H = 30;   // weekday (light blue)
+static const int TM_BAND_Y = 58,  TM_BAND_H = 92;   // big time (bright blue)
+static const int AP_BAND_Y = 150, AP_BAND_H = 22;   // AM/PM marker (12h only)
+static const int ACCENT_Y  = 176;                   // thin accent rule
+static const int ACCENT_W  = 96;                    // accent rule width (centred)
+static const int DT_BAND_Y = 184, DT_BAND_H = 44;   // German date (medium blue)
 
 // CLK_COL_* preset index -> RGB565 (mirrors the web UI colour <select> order).
 static uint16_t clockColor(uint8_t i) {
   switch (i) {
-    case CLK_COL_TEAL:   return C_TEAL;
-    case CLK_COL_GREEN:  return C_GREEN;
-    case CLK_COL_YELLOW: return C_YELLOW;
-    case CLK_COL_RED:    return C_RED;
-    case CLK_COL_BLUE:   return C_BLUE;
-    case CLK_COL_GRAY:   return C_GRAY;
-    default:             return C_WHITE;
+    case CLK_COL_TEAL:        return C_TEAL;
+    case CLK_COL_GREEN:       return C_GREEN;
+    case CLK_COL_YELLOW:      return C_YELLOW;
+    case CLK_COL_RED:         return C_RED;
+    case CLK_COL_BLUE:        return C_BLUE;
+    case CLK_COL_GRAY:        return C_GRAY;
+    case CLK_COL_SELFBLUE:    return C_SELFBLUE;
+    case CLK_COL_SELFBLUE_DK: return C_SELFBLUE_DK;
+    default:                  return C_WHITE;
   }
 }
 
-static const char* kWeekday[7] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
+// German day / month names. All ASCII-safe (the vendored font has no umlauts):
+// "Maerz" stands in for "März" so the big font renders every glyph cleanly.
+static const char* kWeekdayDE[7] = {
+  "Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"};
+static const char* kMonthDE[12] = {
+  "Januar", "Februar", "Maerz", "April", "Mai", "Juni",
+  "Juli", "August", "September", "Oktober", "November", "Dezember"};
 
-// Build the time / AM-P / date / weekday strings for the current settings. When
+// Build the time / AM-PM / date / weekday strings for the current settings. When
 // the clock hasn't synced yet, show a neutral placeholder instead of a wrong time.
 static void buildStrings(const ClockFaceSettings& f, char* tm, size_t tmN,
                          char* ap, size_t apN, char* dt, size_t dtN,
@@ -56,20 +66,49 @@ static void buildStrings(const ClockFaceSettings& f, char* tm, size_t tmN,
     else          snprintf(tm, tmN, "%d:%02d",   hh, t.tm_min);
   }
 
-  if (f.showWeekday && t.tm_wday >= 0 && t.tm_wday < 7) strlcpy(wd, kWeekday[t.tm_wday], wdN);
+  if (f.showWeekday && t.tm_wday >= 0 && t.tm_wday < 7) strlcpy(wd, kWeekdayDE[t.tm_wday], wdN);
 
   int d = t.tm_mday, mo = t.tm_mon + 1, y = t.tm_year + 1900;
   switch (f.dateFormat) {
-    case CLK_DATE_DMY: snprintf(dt, dtN, "%02d.%02d.%04d", d, mo, y); break;
-    case CLK_DATE_YMD: snprintf(dt, dtN, "%04d-%02d-%02d", y, mo, d); break;
-    case CLK_DATE_DM:  snprintf(dt, dtN, "%02d.%02d", d, mo);         break;
-    default:           dt[0] = 0;                                     break;  // CLK_DATE_OFF
+    case CLK_DATE_DMY:     snprintf(dt, dtN, "%02d.%02d.%04d", d, mo, y); break;
+    case CLK_DATE_YMD:     snprintf(dt, dtN, "%04d-%02d-%02d", y, mo, d); break;
+    case CLK_DATE_DM:      snprintf(dt, dtN, "%02d.%02d", d, mo);         break;
+    case CLK_DATE_DE_LONG:
+      if (t.tm_mon >= 0 && t.tm_mon < 12)
+        snprintf(dt, dtN, "%d. %s %04d", d, kMonthDE[t.tm_mon], y);      break;
+    default:               dt[0] = 0;                                     break;  // CLK_DATE_OFF
   }
 }
 
 // Clear a full-width horizontal band to black.
 static void clearBand(Arduino_GFX* gfx, int y, int h) {
   gfx->fillRect(0, y, TFT_WIDTH, h, C_BLACK);
+}
+
+// Draw `s` centred horizontally on screen and vertically within [bandY, bandY+bandH)
+// using the currently-set GFX font and text size. Uses getTextBounds so proportional
+// fonts (with per-glyph bearings) land dead-centre — the 6x8 helpers can't do this.
+static void drawFontCentered(Arduino_GFX* gfx, const char* s, int bandY, int bandH,
+                             uint16_t color) {
+  int16_t x1, y1; uint16_t w, h;
+  gfx->getTextBounds(s, 0, 0, &x1, &y1, &w, &h);
+  int cx = (TFT_WIDTH - (int)w) / 2 - x1;
+  int cy = bandY + (bandH - (int)h) / 2 - y1;
+  gfx->setTextColor(color);
+  gfx->setCursor(cx, cy);
+  gfx->print(s);
+}
+
+// Largest integer text size (<= maxSize) at which `s` fits within maxW px, for the
+// currently-set GFX font. Assumes setFont() has already been called by the caller.
+static uint8_t fontFit(Arduino_GFX* gfx, const char* s, int maxW, uint8_t maxSize) {
+  for (uint8_t sz = maxSize; sz > 1; --sz) {
+    gfx->setTextSize(sz);
+    int16_t x1, y1; uint16_t w, h;
+    gfx->getTextBounds(s, 0, 0, &x1, &y1, &w, &h);
+    if ((int)w <= maxW) return sz;
+  }
+  return 1;
 }
 
 void ClockMode::begin(const Settings& s) {
@@ -87,36 +126,57 @@ void ClockMode::service(const Settings& s) {
   if (!gfx) return;
 
   const ClockFaceSettings& f = s.clockFace;
-  char tm[16], ap[4], dt[24], wd[8];
+  char tm[16], ap[4], dt[24], wd[12];
   buildStrings(f, tm, sizeof(tm), ap, sizeof(ap), dt, sizeof(dt), wd, sizeof(wd));
 
   uint16_t timeCol = clockColor(f.timeColor);
   uint16_t dateCol = clockColor(f.dateColor);
 
-  if (needFull_) gfx->fillScreen(C_BLACK);
+  if (needFull_) {
+    gfx->fillScreen(C_BLACK);
+    // Thin steel-blue accent rule between the time and the date (static; sits in
+    // the gap between bands so per-second band clears never touch it).
+    gfx->fillRect((TFT_WIDTH - ACCENT_W) / 2, ACCENT_Y, ACCENT_W, 2, C_SELFBLUE_DK);
+  }
 
-  // Weekday band.
+  gfx->setFont(&FreeSansBold10pt7b);   // proportional bold for the whole face
+
+  // Weekday band (light/medium blue, single size).
   if (needFull_ || strcmp(wd, lastWd_) != 0) {
     clearBand(gfx, WD_BAND_Y, WD_BAND_H);
-    if (wd[0]) gfxDrawCentered(wd, WD_Y, 3, dateCol);
+    if (wd[0]) {
+      gfx->setTextSize(1);
+      drawFontCentered(gfx, wd, WD_BAND_Y, WD_BAND_H, dateCol);
+    }
     strlcpy(lastWd_, wd, sizeof(lastWd_));
   }
 
-  // Time band (also carries the AM/PM marker so both repaint together).
+  // Time band (+ AM/PM band, so both repaint together on any time change).
   if (needFull_ || strcmp(tm, lastTime_) != 0) {
     clearBand(gfx, TM_BAND_Y, TM_BAND_H);
-    uint8_t sz = gfxFitSize(tm, 232, f.bigSize ? 8 : 5);
-    gfxDrawCentered(tm, TIME_Y, sz, timeCol);
-    if (ap[0]) gfxDrawCentered(ap, AMPM_Y, 2, dateCol);
+    clearBand(gfx, AP_BAND_Y, AP_BAND_H);
+    uint8_t sz = fontFit(gfx, tm, 232, f.bigSize ? 3 : 2);
+    gfx->setTextSize(sz);
+    drawFontCentered(gfx, tm, TM_BAND_Y, TM_BAND_H, timeCol);
+    if (ap[0]) {
+      gfx->setTextSize(1);
+      drawFontCentered(gfx, ap, AP_BAND_Y, AP_BAND_H, dateCol);
+    }
     strlcpy(lastTime_, tm, sizeof(lastTime_));
   }
 
-  // Date band.
+  // Date band (German long form by default; other formats honoured too).
   if (needFull_ || strcmp(dt, lastDate_) != 0) {
     clearBand(gfx, DT_BAND_Y, DT_BAND_H);
-    if (dt[0]) gfxDrawCentered(dt, DATE_Y, gfxFitSize(dt, 232, 3), dateCol);
+    if (dt[0]) {
+      gfx->setTextSize(1);
+      drawFontCentered(gfx, dt, DT_BAND_Y, DT_BAND_H, dateCol);
+    }
     strlcpy(lastDate_, dt, sizeof(lastDate_));
   }
 
+  // Restore the built-in 6x8 font so shared status/boot screens render normally.
+  gfx->setFont(NULL);
+  gfx->setTextSize(1);
   needFull_ = false;
 }

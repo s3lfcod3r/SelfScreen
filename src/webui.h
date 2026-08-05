@@ -12,6 +12,7 @@ static const char WEBUI_HTML[] PROGMEM = R"HTMLPAGE(<!DOCTYPE html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SelfScreen</title>
+<link rel="icon" type="image/png" href="data:image/png;base64,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">
 <style>
 :root{--bg:#0e1116;--card:#171c24;--mut:#8b96a5;--fg:#e6edf3;--acc:#3fb950;--acc2:#2f81f7;--red:#f85149;--bd:#262d38}
 *{box-sizing:border-box}
@@ -137,9 +138,10 @@ small.hint{display:block;color:var(--mut);margin-top:4px;font-size:12px}
   <div class="card"><h2>Clock face</h2>
    <div class="chk"><input id="clk24" type="checkbox"><label>24-hour time (off = 12-hour with AM/PM)</label></div>
    <div class="chk"><input id="clkSeconds" type="checkbox"><label>Show seconds</label></div>
-   <div class="chk"><input id="clkWeekday" type="checkbox"><label>Show weekday (Mon, Tue, ...)</label></div>
+   <div class="chk"><input id="clkWeekday" type="checkbox"><label>Show weekday (Montag, Dienstag, ...)</label></div>
    <label>Date format</label>
    <select id="clkDateFmt">
+    <option value="4">5. August 2026 (Deutsch)</option>
     <option value="0">DD.MM.YYYY</option>
     <option value="1">YYYY-MM-DD</option>
     <option value="2">DD.MM</option>
@@ -150,11 +152,13 @@ small.hint{display:block;color:var(--mut);margin-top:4px;font-size:12px}
      <select id="clkTimeColor">
       <option value="0">White</option><option value="1">Teal</option><option value="2">Green</option>
       <option value="3">Yellow</option><option value="4">Red</option><option value="5">Blue</option><option value="6">Gray</option>
+      <option value="7">Self-Blau (hell)</option><option value="8">Self-Blau (mittel)</option>
      </select></div>
     <div><label>Date colour</label>
      <select id="clkDateColor">
       <option value="0">White</option><option value="1">Teal</option><option value="2">Green</option>
       <option value="3">Yellow</option><option value="4">Red</option><option value="5">Blue</option><option value="6">Gray</option>
+      <option value="7">Self-Blau (hell)</option><option value="8">Self-Blau (mittel)</option>
      </select></div>
    </div>
    <label>Text size</label>
@@ -288,9 +292,9 @@ function loadConfig(){return j('/api/config').then(function(c){C=c;
  // clock face slice
  var cf=c.clockFace||{};
  sc('clk24',cf.hour24!==false); sc('clkSeconds',!!cf.showSeconds); sc('clkWeekday',cf.showWeekday!==false);
- sv('clkDateFmt',cf.dateFormat!=null?cf.dateFormat:0);
- sv('clkTimeColor',cf.timeColor!=null?cf.timeColor:1);
- sv('clkDateColor',cf.dateColor!=null?cf.dateColor:6);
+ sv('clkDateFmt',cf.dateFormat!=null?cf.dateFormat:4);
+ sv('clkTimeColor',cf.timeColor!=null?cf.timeColor:7);
+ sv('clkDateColor',cf.dateColor!=null?cf.dateColor:8);
  sv('clkBig',cf.bigSize!==false?1:0);
  // usage slice
  sv('usageUrl',u.usageUrl);

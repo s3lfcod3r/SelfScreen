@@ -23,7 +23,7 @@ class ClockMode : public DisplayMode {
   bool needFull_ = true;               // force a full redraw (boot / wake / settings change)
   char lastTime_[16] = {0};            // last drawn time string (dirty-tracking)
   char lastDate_[24] = {0};            // last drawn date string
-  char lastWd_[8]    = {0};            // last drawn weekday string
+  char lastWd_[12]   = {0};            // last drawn weekday string (German, e.g. "Donnerstag")
 };
 
 extern ClockMode g_clockMode;

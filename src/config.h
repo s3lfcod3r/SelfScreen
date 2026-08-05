@@ -98,25 +98,30 @@
 // Colours are stored as a small preset index (see clockColor() in ClockMode.cpp);
 // the same order is mirrored in the web UI's colour <select>.
 // ---------------------------------------------------------------------------
-#define CLK_DATE_DMY   0    // DD.MM.YYYY
-#define CLK_DATE_YMD   1    // YYYY-MM-DD
-#define CLK_DATE_DM    2    // DD.MM
-#define CLK_DATE_OFF   3    // no date line
+#define CLK_DATE_DMY     0    // DD.MM.YYYY
+#define CLK_DATE_YMD     1    // YYYY-MM-DD
+#define CLK_DATE_DM      2    // DD.MM
+#define CLK_DATE_OFF     3    // no date line
+#define CLK_DATE_DE_LONG 4    // e.g. "5. August 2026" (German long form)
+#define CLK_DATE_MAX     CLK_DATE_DE_LONG
 
-#define CLK_COL_WHITE  0
-#define CLK_COL_TEAL   1
-#define CLK_COL_GREEN  2
-#define CLK_COL_YELLOW 3
-#define CLK_COL_RED    4
-#define CLK_COL_BLUE   5
-#define CLK_COL_GRAY   6
+#define CLK_COL_WHITE       0
+#define CLK_COL_TEAL        1
+#define CLK_COL_GREEN       2
+#define CLK_COL_YELLOW      3
+#define CLK_COL_RED         4
+#define CLK_COL_BLUE        5
+#define CLK_COL_GRAY        6
+#define CLK_COL_SELFBLUE    7    // soft light steel blue (C_SELFBLUE)
+#define CLK_COL_SELFBLUE_DK 8    // medium steel blue (C_SELFBLUE_DK)
+#define CLK_COL_MAX         CLK_COL_SELFBLUE_DK
 
 #define DEFAULT_CLK_24H        true
 #define DEFAULT_CLK_SECONDS    false
 #define DEFAULT_CLK_WEEKDAY    true
-#define DEFAULT_CLK_DATEFMT    CLK_DATE_DMY
-#define DEFAULT_CLK_TIMECOLOR  CLK_COL_TEAL
-#define DEFAULT_CLK_DATECOLOR  CLK_COL_GRAY
+#define DEFAULT_CLK_DATEFMT    CLK_DATE_DE_LONG
+#define DEFAULT_CLK_TIMECOLOR  CLK_COL_SELFBLUE
+#define DEFAULT_CLK_DATECOLOR  CLK_COL_SELFBLUE_DK
 #define DEFAULT_CLK_BIG        true
 
 // Claude usage mode: once data stops arriving for this long (PC asleep, daemon

@@ -19,6 +19,8 @@ class Arduino_GFX;   // fwd-decl: only the drawing .cpp files pull in the full l
 #define C_YELLOW 0xFFE0
 #define C_BLUE   0x041F
 #define C_TEAL   0x2EB7   // SelfScreen brand teal (~#2dd4bf)
+#define C_SELFBLUE    0x6DBF   // soft light steel blue (~#69B4FF) — clock time
+#define C_SELFBLUE_DK 0x4C9C   // medium steel blue     (~#4890E0) — clock date/weekday
 
 // ---- Device lifecycle -----------------------------------------------------
 void         gfxBegin(const Settings& s);
