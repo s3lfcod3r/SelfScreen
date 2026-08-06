@@ -47,22 +47,66 @@ struct ClockFaceSettings {
 };
 
 // ---- Weather feature slice (MODE_WEATHER display options) -------------------
+// A composable stack of blocks (see WeatherMode.cpp): A primary temp+icon,
+// B condition, C detail line, D hourly strip, E daily strip, F trend. Every
+// block toggles independently and carries its own size/colour; the strips add
+// per-sub-field toggles and a column count. fromJson() ignores unknown/missing
+// keys, so a device upgrading from the older/smaller struct migrates cleanly.
 struct WeatherSettings {
+  // --- location / data ---
   float    lat;          // latitude  (Open-Meteo query)
   float    lon;          // longitude
   bool     unitF;        // false = Celsius, true = Fahrenheit
+  uint8_t  windUnit;     // WX_WIND_* (kmh / mph / ms)
+  bool     precipPct;    // detail precip: false = mm, true = current pop %
   uint16_t refreshSec;   // seconds between fetches
-  bool     showTemp;     // show the big temperature
-  bool     showCond;     // show the German condition text
-  bool     showPrecip;   // show the precipitation line
-  bool     showTrend;    // show the 12h temperature sparkline
-  uint8_t  tempSize;     // index into CLK_NUM_FONTS[]  (0..CLK_NUM_FONT_MAX)
-  uint8_t  condSize;     // index into CLK_PROP_FONTS[] (0..CLK_PROP_FONT_MAX)
-  uint8_t  precipSize;   // index into CLK_PROP_FONTS[] (0..CLK_PROP_FONT_MAX)
-  uint8_t  tempColor;    // CLK_COL_* preset index — temperature
-  uint8_t  condColor;    // CLK_COL_* preset index — condition text
-  uint8_t  precipColor;  // CLK_COL_* preset index — precipitation
-  uint8_t  trendColor;   // CLK_COL_* preset index — sparkline
+
+  // --- block toggles ---
+  bool     showTemp;     // A: big temperature
+  bool     showBigIcon;  // A: big weather icon beside the temp
+  bool     showCond;     // B: German condition text
+  bool     showFeels;    // C: feels-like
+  bool     showHum;      // C: humidity
+  bool     showWind;     // C: wind
+  bool     showPrecip;   // C: precipitation
+  bool     showHourly;   // D: hourly strip
+  bool     showDaily;    // E: daily strip
+  bool     showTrend;    // F: 12h temperature sparkline
+
+  // --- hourly strip (D) sub-options ---
+  uint8_t  hourlyCount;  // columns (WX_HOURLY_COUNT_MIN..MAX)
+  uint8_t  hourlyStep;   // hours between columns (1/2/3)
+  bool     hrHour;       // sub-field: "15h"
+  bool     hrIcon;       // sub-field: mini icon
+  bool     hrTemp;       // sub-field: temperature
+  bool     hrPop;        // sub-field: rain probability
+
+  // --- daily strip (E) sub-options ---
+  uint8_t  dailyCount;   // columns (WX_DAILY_COUNT_MIN..MAX)
+  bool     dyDay;        // sub-field: "Fr"
+  bool     dyIcon;       // sub-field: mini icon
+  bool     dyTemps;      // sub-field: "24/16"
+  bool     dyPop;        // sub-field: rain %
+
+  bool     trendLabels;  // F: min/max labels on the sparkline
+
+  // --- sizes (indices into the clock font tables) ---
+  uint8_t  tempSize;     // CLK_NUM_FONTS[]  (0..CLK_NUM_FONT_MAX)
+  uint8_t  condSize;     // CLK_PROP_FONTS[] (0..CLK_PROP_FONT_MAX)
+  uint8_t  detailSize;   // CLK_PROP_FONTS[]
+  uint8_t  hourlySize;   // CLK_PROP_FONTS[]
+  uint8_t  dailySize;    // CLK_PROP_FONTS[]
+
+  // --- colours (CLK_COL_* preset indices) ---
+  uint8_t  tempColor;
+  uint8_t  bigIconColor;
+  uint8_t  condColor;
+  uint8_t  detailColor;
+  uint8_t  hourlyColor;  // hour label + temp
+  uint8_t  hourlyPop;    // rain-probability tint
+  uint8_t  dailyColor;   // weekday + temps
+  uint8_t  dailyPop;     // rain-probability tint
+  uint8_t  trendColor;
 
   void setDefaults();
   void toJson(JsonObject o) const;

@@ -206,55 +206,115 @@ small.hint{display:block;color:var(--mut);margin-top:4px;font-size:12px}
     <div><label>Latitude</label><input id="wxLat" type="number" step="0.01" min="-90" max="90"></div>
     <div><label>Longitude</label><input id="wxLon" type="number" step="0.01" min="-180" max="180"></div>
    </div>
-   <label>Units</label>
-   <select id="wxUnit"><option value="0">&deg;C (Celsius)</option><option value="1">&deg;F (Fahrenheit)</option></select>
-   <label>Refresh weather (s)</label><input id="wxRefresh" type="number" min="60" max="21600">
-   <small class="hint">Data from <a href="https://open-meteo.com" target="_blank">Open-Meteo</a> over plain HTTP (no API key). Default location is Hamburg (53.55, 9.99). Condition text is German. Until the first fetch lands the screen shows <code>--</code>.</small>
+   <div class="row">
+    <div><label>Temperature unit</label>
+     <select id="wxUnit"><option value="0">&deg;C (Celsius)</option><option value="1">&deg;F (Fahrenheit)</option></select></div>
+    <div><label>Wind unit</label>
+     <select id="wxWindUnit"><option value="0">km/h</option><option value="1">mph</option><option value="2">m/s</option></select></div>
+   </div>
+   <div class="row">
+    <div><label>Rain in detail line</label>
+     <select id="wxPrecipPct"><option value="0">mm (amount)</option><option value="1">% (chance)</option></select></div>
+    <div><label>Refresh weather (s)</label><input id="wxRefresh" type="number" min="60" max="21600"></div>
+   </div>
+   <label>Layout preset</label>
+   <select id="wxPreset" onchange="wxApplyPreset(this.value)">
+    <option value="">— pick a starting point —</option>
+    <option value="minimal">Minimal (icon + temp + condition)</option>
+    <option value="stunden">Stunden (primary + hourly strip)</option>
+    <option value="tage">Tage (primary + daily strip)</option>
+    <option value="detail">Detail (primary + details + hourly)</option>
+    <option value="alles">Alles (everything on)</option>
+   </select>
+   <small class="hint">Data from <a href="https://open-meteo.com" target="_blank">Open-Meteo</a> over plain HTTP (no API key). Default location is Hamburg (53.55, 9.99). Condition text is German. A preset just prefills the toggles below — fine-tune anything, then <b>Save settings</b>. Until the first fetch lands the screen shows <code>--</code>.</small>
   </div>
-  <div class="card"><h2>Elements</h2>
-   <div class="chk"><input id="wxShowTemp" type="checkbox"><label>Temperature</label></div>
-   <div class="chk"><input id="wxShowCond" type="checkbox"><label>Condition text (Klar, Bewoelkt, Regen, ...)</label></div>
-   <div class="chk"><input id="wxShowPrecip" type="checkbox"><label>Precipitation (mm)</label></div>
-   <div class="chk"><input id="wxShowTrend" type="checkbox"><label>12h temperature trend (sparkline)</label></div>
-   <label>Element sizes</label>
+
+  <div class="card"><h2>A &middot; Now (temperature + icon)</h2>
+   <div class="chk"><input id="wxShowTemp" type="checkbox"><label>Big temperature (with drawn &deg; ring)</label></div>
+   <div class="chk"><input id="wxShowBigIcon" type="checkbox"><label>Big weather icon beside the temperature</label></div>
    <div class="row">
-    <div><label class="muted">Temperature <span id="wxTempSizeV"></span></label>
+    <div><label class="muted">Temperature size <span id="wxTempSizeV"></span></label>
      <input id="wxTempSize" type="range" min="0" max="6" oninput="wxTempSizeV.textContent=(+this.value+1)+'/7'"></div>
-    <div><label class="muted">Condition <span id="wxCondSizeV"></span></label>
+   </div>
+   <div class="row">
+    <div><label class="muted">Temperature colour</label><select id="wxTempColor" class="wxc"></select></div>
+    <div><label class="muted">Icon colour</label><select id="wxBigIconColor" class="wxc"></select></div>
+   </div>
+  </div>
+
+  <div class="card"><h2>B &middot; Condition text</h2>
+   <div class="chk"><input id="wxShowCond" type="checkbox"><label>Condition text (Klar, Bewoelkt, Regen, ...)</label></div>
+   <div class="row">
+    <div><label class="muted">Size <span id="wxCondSizeV"></span></label>
      <input id="wxCondSize" type="range" min="0" max="5" oninput="wxCondSizeV.textContent=(+this.value+1)+'/6'"></div>
-    <div><label class="muted">Precip <span id="wxPrecipSizeV"></span></label>
-     <input id="wxPrecipSize" type="range" min="0" max="5" oninput="wxPrecipSizeV.textContent=(+this.value+1)+'/6'"></div>
+    <div><label class="muted">Colour</label><select id="wxCondColor" class="wxc"></select></div>
    </div>
-   <label>Element colours</label>
+  </div>
+
+  <div class="card"><h2>C &middot; Detail line</h2>
+   <div class="chk"><input id="wxShowFeels" type="checkbox"><label>Feels-like (Gefuehlt 20)</label></div>
+   <div class="chk"><input id="wxShowHum" type="checkbox"><label>Humidity (Luft 61%)</label></div>
+   <div class="chk"><input id="wxShowWind" type="checkbox"><label>Wind (Wind 12)</label></div>
+   <div class="chk"><input id="wxShowPrecip" type="checkbox"><label>Precipitation (Regen 0.0 mm / %)</label></div>
    <div class="row">
-    <div><label class="muted">Temperature</label>
-     <select id="wxTempColor">
-      <option value="0">White</option><option value="1">Teal</option><option value="2">Green</option>
-      <option value="3">Yellow</option><option value="4">Red</option><option value="5">Blue</option><option value="6">Gray</option>
-      <option value="7">Self-Blau (hell)</option><option value="8">Self-Blau (mittel)</option>
-     </select></div>
-    <div><label class="muted">Condition</label>
-     <select id="wxCondColor">
-      <option value="0">White</option><option value="1">Teal</option><option value="2">Green</option>
-      <option value="3">Yellow</option><option value="4">Red</option><option value="5">Blue</option><option value="6">Gray</option>
-      <option value="7">Self-Blau (hell)</option><option value="8">Self-Blau (mittel)</option>
-     </select></div>
+    <div><label class="muted">Size <span id="wxDetailSizeV"></span></label>
+     <input id="wxDetailSize" type="range" min="0" max="5" oninput="wxDetailSizeV.textContent=(+this.value+1)+'/6'"></div>
+    <div><label class="muted">Colour</label><select id="wxDetailColor" class="wxc"></select></div>
+   </div>
+   <small class="hint">Enabled items join into one centred line. The proportional font is ASCII-only, so temperatures here print without the &deg; symbol.</small>
+  </div>
+
+  <div class="card"><h2>D &middot; Hourly strip</h2>
+   <div class="chk"><input id="wxShowHourly" type="checkbox"><label>Show hourly strip</label></div>
+   <div class="row">
+    <div><label class="muted">Columns <span id="wxHourlyCountV"></span></label>
+     <input id="wxHourlyCount" type="range" min="3" max="6" oninput="wxHourlyCountV.textContent=this.value"></div>
+    <div><label class="muted">Every <span id="wxHourlyStepV"></span> h</label>
+     <input id="wxHourlyStep" type="range" min="1" max="3" oninput="wxHourlyStepV.textContent=this.value"></div>
+   </div>
+   <label class="muted">Show per column</label>
+   <div class="chk"><input id="wxHrHour" type="checkbox"><label>Hour (15h)</label></div>
+   <div class="chk"><input id="wxHrIcon" type="checkbox"><label>Mini weather icon</label></div>
+   <div class="chk"><input id="wxHrTemp" type="checkbox"><label>Temperature (24)</label></div>
+   <div class="chk"><input id="wxHrPop" type="checkbox"><label>Rain probability (20%)</label></div>
+   <div class="row">
+    <div><label class="muted">Size <span id="wxHourlySizeV"></span></label>
+     <input id="wxHourlySize" type="range" min="0" max="5" oninput="wxHourlySizeV.textContent=(+this.value+1)+'/6'"></div>
    </div>
    <div class="row">
-    <div><label class="muted">Precipitation</label>
-     <select id="wxPrecipColor">
-      <option value="0">White</option><option value="1">Teal</option><option value="2">Green</option>
-      <option value="3">Yellow</option><option value="4">Red</option><option value="5">Blue</option><option value="6">Gray</option>
-      <option value="7">Self-Blau (hell)</option><option value="8">Self-Blau (mittel)</option>
-     </select></div>
-    <div><label class="muted">Trend line</label>
-     <select id="wxTrendColor">
-      <option value="0">White</option><option value="1">Teal</option><option value="2">Green</option>
-      <option value="3">Yellow</option><option value="4">Red</option><option value="5">Blue</option><option value="6">Gray</option>
-      <option value="7">Self-Blau (hell)</option><option value="8">Self-Blau (mittel)</option>
-     </select></div>
+    <div><label class="muted">Text colour</label><select id="wxHourlyColor" class="wxc"></select></div>
+    <div><label class="muted">Rain% colour</label><select id="wxHourlyPop" class="wxc"></select></div>
    </div>
-   <small class="hint">Every element is independent: toggle it, drag its size slider and pick its colour. Temperature uses the big number font (with a drawn &deg; ring); condition and precipitation use the proportional font.</small>
+  </div>
+
+  <div class="card"><h2>E &middot; Daily strip</h2>
+   <div class="chk"><input id="wxShowDaily" type="checkbox"><label>Show daily strip</label></div>
+   <div class="row">
+    <div><label class="muted">Columns <span id="wxDailyCountV"></span></label>
+     <input id="wxDailyCount" type="range" min="2" max="4" oninput="wxDailyCountV.textContent=this.value"></div>
+   </div>
+   <label class="muted">Show per column</label>
+   <div class="chk"><input id="wxDyDay" type="checkbox"><label>Weekday (Fr)</label></div>
+   <div class="chk"><input id="wxDyIcon" type="checkbox"><label>Mini weather icon</label></div>
+   <div class="chk"><input id="wxDyTemps" type="checkbox"><label>Max/min (24/16)</label></div>
+   <div class="chk"><input id="wxDyPop" type="checkbox"><label>Rain probability (30%)</label></div>
+   <div class="row">
+    <div><label class="muted">Size <span id="wxDailySizeV"></span></label>
+     <input id="wxDailySize" type="range" min="0" max="5" oninput="wxDailySizeV.textContent=(+this.value+1)+'/6'"></div>
+   </div>
+   <div class="row">
+    <div><label class="muted">Text colour</label><select id="wxDailyColor" class="wxc"></select></div>
+    <div><label class="muted">Rain% colour</label><select id="wxDailyPop" class="wxc"></select></div>
+   </div>
+  </div>
+
+  <div class="card"><h2>F &middot; Temperature trend</h2>
+   <div class="chk"><input id="wxShowTrend" type="checkbox"><label>12h temperature sparkline</label></div>
+   <div class="chk"><input id="wxTrendLabels" type="checkbox"><label>Min/max labels</label></div>
+   <div class="row">
+    <div><label class="muted">Colour</label><select id="wxTrendColor" class="wxc"></select></div>
+   </div>
+   <small class="hint">Blocks stack top&rarr;bottom (A&rarr;F) and auto-fit 240&times;240. Turning many blocks on at big sizes can overflow; the gaps tighten and the lowest block may clip.</small>
   </div>
  </section>
 
@@ -356,6 +416,22 @@ var TZMAP={
 function fillTz(){var s=$('tz');if(!s)return;var keys=Object.keys(TZMAP).filter(function(k){return k!==''});
  keys.sort();s.innerHTML='<option value="">UTC</option>'+keys.map(function(k){return '<option value="'+k+'">'+k+'</option>'}).join('');}
 
+// Weather colour <select>s share one option list (CLK_COL_* order); fill them
+// from JS to keep the HTML small.
+var COLOPTS='<option value="0">White</option><option value="1">Teal</option><option value="2">Green</option><option value="3">Yellow</option><option value="4">Red</option><option value="5">Blue</option><option value="6">Gray</option><option value="7">Self-Blau (hell)</option><option value="8">Self-Blau (mittel)</option>';
+function fillColors(){document.querySelectorAll('select.wxc').forEach(function(s){if(!s.options.length)s.innerHTML=COLOPTS;});}
+function wxSet(id,v){var e=$(id);if(!e)return;if(e.type==='checkbox')e.checked=!!v;else{e.value=v;e.dispatchEvent(new Event('input'));}}
+// Layout presets only prefill the controls; the real state is the saved settings.
+function wxApplyPreset(p){if(!p)return;
+ var base={wxShowTemp:1,wxShowBigIcon:1,wxShowCond:1,wxShowFeels:0,wxShowHum:0,wxShowWind:0,wxShowPrecip:0,wxShowHourly:0,wxShowDaily:0,wxShowTrend:0,wxTrendLabels:0};
+ var P={minimal:{},
+  stunden:{wxShowHourly:1,wxHourlyCount:4,wxHourlyStep:1,wxHrHour:1,wxHrIcon:1,wxHrTemp:1,wxHrPop:1},
+  tage:{wxShowDaily:1,wxDailyCount:3,wxDyDay:1,wxDyIcon:1,wxDyTemps:1,wxDyPop:1},
+  detail:{wxShowFeels:1,wxShowHum:1,wxShowWind:1,wxShowPrecip:1,wxShowHourly:1,wxHourlyCount:3,wxHourlyStep:1,wxHrHour:1,wxHrIcon:1,wxHrTemp:1,wxHrPop:1},
+  alles:{wxShowFeels:1,wxShowHum:1,wxShowWind:1,wxShowPrecip:1,wxShowHourly:1,wxHourlyCount:4,wxHourlyStep:1,wxHrHour:1,wxHrIcon:1,wxHrTemp:1,wxHrPop:1,wxShowDaily:1,wxDailyCount:3,wxDyDay:1,wxDyIcon:1,wxDyTemps:1,wxDyPop:1,wxShowTrend:1,wxTrendLabels:1}};
+ var m=Object.assign({},base,P[p]||{});
+ for(var k in m)wxSet(k,m[k]);
+}
 function modeChanged(){if(!$('mode'))return;
  $('carouselRow').style.display=$('mode').value==='carousel'?'block':'none';}
 function loadConfig(){return j('/api/config').then(function(c){C=c;
@@ -395,17 +471,28 @@ function loadConfig(){return j('/api/config').then(function(c){C=c;
  var _sz=function(id,v,mx){var e=$(id);if(!e)return;e.value=(v!=null?v:4);e.dispatchEvent(new Event('input'));};
  _sz('clkTimeSize',cf.timeSize,6);_sz('clkWeekdaySize',cf.weekdaySize,5);_sz('clkDateSize',cf.dateSize,5);
  // weather slice
+ fillColors();
  var wx=c.weather||{};
  sv('wxLat',wx.lat!=null?wx.lat:53.55); sv('wxLon',wx.lon!=null?wx.lon:9.99);
- sv('wxUnit',wx.unitF?1:0); sv('wxRefresh',wx.refreshSec!=null?wx.refreshSec:600);
- sc('wxShowTemp',wx.showTemp!==false); sc('wxShowCond',wx.showCond!==false);
- sc('wxShowPrecip',wx.showPrecip!==false); sc('wxShowTrend',wx.showTrend!==false);
+ sv('wxUnit',wx.unitF?1:0); sv('wxWindUnit',wx.windUnit!=null?wx.windUnit:0);
+ sv('wxPrecipPct',wx.precipPct?1:0); sv('wxRefresh',wx.refreshSec!=null?wx.refreshSec:600);
+ sc('wxShowTemp',wx.showTemp!==false); sc('wxShowBigIcon',wx.showBigIcon!==false); sc('wxShowCond',wx.showCond!==false);
+ sc('wxShowFeels',!!wx.showFeels); sc('wxShowHum',!!wx.showHum); sc('wxShowWind',!!wx.showWind); sc('wxShowPrecip',!!wx.showPrecip);
+ sc('wxShowHourly',wx.showHourly!==false); sc('wxShowDaily',!!wx.showDaily); sc('wxShowTrend',!!wx.showTrend);
+ sc('wxHrHour',wx.hrHour!==false); sc('wxHrIcon',wx.hrIcon!==false); sc('wxHrTemp',wx.hrTemp!==false); sc('wxHrPop',wx.hrPop!==false);
+ sc('wxDyDay',wx.dyDay!==false); sc('wxDyIcon',wx.dyIcon!==false); sc('wxDyTemps',wx.dyTemps!==false); sc('wxDyPop',wx.dyPop!==false);
+ sc('wxTrendLabels',!!wx.trendLabels);
  sv('wxTempColor',wx.tempColor!=null?wx.tempColor:0);
+ sv('wxBigIconColor',wx.bigIconColor!=null?wx.bigIconColor:3);
  sv('wxCondColor',wx.condColor!=null?wx.condColor:7);
- sv('wxPrecipColor',wx.precipColor!=null?wx.precipColor:6);
+ sv('wxDetailColor',wx.detailColor!=null?wx.detailColor:6);
+ sv('wxHourlyColor',wx.hourlyColor!=null?wx.hourlyColor:0); sv('wxHourlyPop',wx.hourlyPop!=null?wx.hourlyPop:1);
+ sv('wxDailyColor',wx.dailyColor!=null?wx.dailyColor:0); sv('wxDailyPop',wx.dailyPop!=null?wx.dailyPop:1);
  sv('wxTrendColor',wx.trendColor!=null?wx.trendColor:1);
  var _wsz=function(id,v,dv){var e=$(id);if(!e)return;e.value=(v!=null?v:dv);e.dispatchEvent(new Event('input'));};
- _wsz('wxTempSize',wx.tempSize,5);_wsz('wxCondSize',wx.condSize,4);_wsz('wxPrecipSize',wx.precipSize,2);
+ _wsz('wxTempSize',wx.tempSize,5);_wsz('wxCondSize',wx.condSize,3);_wsz('wxDetailSize',wx.detailSize,1);
+ _wsz('wxHourlySize',wx.hourlySize,0);_wsz('wxDailySize',wx.dailySize,0);
+ _wsz('wxHourlyCount',wx.hourlyCount,4);_wsz('wxHourlyStep',wx.hourlyStep,1);_wsz('wxDailyCount',wx.dailyCount,3);
  // usage slice
  sv('usageUrl',u.usageUrl);
  sv('usagePollSec',u.pollSec);
@@ -438,11 +525,23 @@ function collect(){
   dateSize:parseInt(gv('clkDateSize'))||0};
  // weather slice
  if($('wxLat')) o.weather={lat:parseFloat(gv('wxLat')),lon:parseFloat(gv('wxLon')),
-  unitF:gv('wxUnit')==='1',refreshSec:parseInt(gv('wxRefresh'))||600,
-  showTemp:gc('wxShowTemp'),showCond:gc('wxShowCond'),showPrecip:gc('wxShowPrecip'),showTrend:gc('wxShowTrend'),
-  tempSize:parseInt(gv('wxTempSize'))||0,condSize:parseInt(gv('wxCondSize'))||0,precipSize:parseInt(gv('wxPrecipSize'))||0,
-  tempColor:parseInt(gv('wxTempColor'))||0,condColor:parseInt(gv('wxCondColor'))||0,
-  precipColor:parseInt(gv('wxPrecipColor'))||0,trendColor:parseInt(gv('wxTrendColor'))||0};
+  unitF:gv('wxUnit')==='1',windUnit:parseInt(gv('wxWindUnit'))||0,precipPct:gv('wxPrecipPct')==='1',
+  refreshSec:parseInt(gv('wxRefresh'))||600,
+  showTemp:gc('wxShowTemp'),showBigIcon:gc('wxShowBigIcon'),showCond:gc('wxShowCond'),
+  showFeels:gc('wxShowFeels'),showHum:gc('wxShowHum'),showWind:gc('wxShowWind'),showPrecip:gc('wxShowPrecip'),
+  showHourly:gc('wxShowHourly'),showDaily:gc('wxShowDaily'),showTrend:gc('wxShowTrend'),
+  hourlyCount:parseInt(gv('wxHourlyCount'))||4,hourlyStep:parseInt(gv('wxHourlyStep'))||1,
+  hrHour:gc('wxHrHour'),hrIcon:gc('wxHrIcon'),hrTemp:gc('wxHrTemp'),hrPop:gc('wxHrPop'),
+  dailyCount:parseInt(gv('wxDailyCount'))||3,
+  dyDay:gc('wxDyDay'),dyIcon:gc('wxDyIcon'),dyTemps:gc('wxDyTemps'),dyPop:gc('wxDyPop'),
+  trendLabels:gc('wxTrendLabels'),
+  tempSize:parseInt(gv('wxTempSize'))||0,condSize:parseInt(gv('wxCondSize'))||0,detailSize:parseInt(gv('wxDetailSize'))||0,
+  hourlySize:parseInt(gv('wxHourlySize'))||0,dailySize:parseInt(gv('wxDailySize'))||0,
+  tempColor:parseInt(gv('wxTempColor'))||0,bigIconColor:parseInt(gv('wxBigIconColor'))||0,
+  condColor:parseInt(gv('wxCondColor'))||0,detailColor:parseInt(gv('wxDetailColor'))||0,
+  hourlyColor:parseInt(gv('wxHourlyColor'))||0,hourlyPop:parseInt(gv('wxHourlyPop'))||0,
+  dailyColor:parseInt(gv('wxDailyColor'))||0,dailyPop:parseInt(gv('wxDailyPop'))||0,
+  trendColor:parseInt(gv('wxTrendColor'))||0};
  // usage slice
  if($('usage')) o.usage={usageUrl:gv('usageUrl'), pollSec:parseInt(gv('usagePollSec'))||0};
  // clock slice

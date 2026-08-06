@@ -75,57 +75,156 @@ void ClockFaceSettings::fromJson(JsonObjectConst o) {
 // Weather slice (MODE_WEATHER display options)
 // ===========================================================================
 void WeatherSettings::setDefaults() {
-  lat         = DEFAULT_WX_LAT;
-  lon         = DEFAULT_WX_LON;
-  unitF       = DEFAULT_WX_UNITF;
-  refreshSec  = DEFAULT_WX_REFRESH;
-  showTemp    = DEFAULT_WX_SHOWTEMP;
-  showCond    = DEFAULT_WX_SHOWCOND;
-  showPrecip  = DEFAULT_WX_SHOWPRECIP;
-  showTrend   = DEFAULT_WX_SHOWTREND;
-  tempSize    = DEFAULT_WX_TEMPSIZE;
-  condSize    = DEFAULT_WX_CONDSIZE;
-  precipSize  = DEFAULT_WX_PRECIPSIZE;
-  tempColor   = DEFAULT_WX_TEMPCOLOR;
-  condColor   = DEFAULT_WX_CONDCOLOR;
-  precipColor = DEFAULT_WX_PRECIPCOLOR;
-  trendColor  = DEFAULT_WX_TRENDCOLOR;
+  lat          = DEFAULT_WX_LAT;
+  lon          = DEFAULT_WX_LON;
+  unitF        = DEFAULT_WX_UNITF;
+  windUnit     = DEFAULT_WX_WINDUNIT;
+  precipPct    = DEFAULT_WX_PRECIPPCT;
+  refreshSec   = DEFAULT_WX_REFRESH;
+
+  showTemp     = DEFAULT_WX_SHOWTEMP;
+  showBigIcon  = DEFAULT_WX_SHOWBIGICON;
+  showCond     = DEFAULT_WX_SHOWCOND;
+  showFeels    = DEFAULT_WX_SHOWFEELS;
+  showHum      = DEFAULT_WX_SHOWHUM;
+  showWind     = DEFAULT_WX_SHOWWIND;
+  showPrecip   = DEFAULT_WX_SHOWPRECIP;
+  showHourly   = DEFAULT_WX_SHOWHOURLY;
+  showDaily    = DEFAULT_WX_SHOWDAILY;
+  showTrend    = DEFAULT_WX_SHOWTREND;
+
+  hourlyCount  = DEFAULT_WX_HOURLYCOUNT;
+  hourlyStep   = DEFAULT_WX_HOURLYSTEP;
+  hrHour       = DEFAULT_WX_HR_HOUR;
+  hrIcon       = DEFAULT_WX_HR_ICON;
+  hrTemp       = DEFAULT_WX_HR_TEMP;
+  hrPop        = DEFAULT_WX_HR_POP;
+
+  dailyCount   = DEFAULT_WX_DAILYCOUNT;
+  dyDay        = DEFAULT_WX_DY_DAY;
+  dyIcon       = DEFAULT_WX_DY_ICON;
+  dyTemps      = DEFAULT_WX_DY_TEMPS;
+  dyPop        = DEFAULT_WX_DY_POP;
+
+  trendLabels  = DEFAULT_WX_TRENDLABELS;
+
+  tempSize     = DEFAULT_WX_TEMPSIZE;
+  condSize     = DEFAULT_WX_CONDSIZE;
+  detailSize   = DEFAULT_WX_DETAILSIZE;
+  hourlySize   = DEFAULT_WX_HOURLYSIZE;
+  dailySize    = DEFAULT_WX_DAILYSIZE;
+
+  tempColor    = DEFAULT_WX_TEMPCOLOR;
+  bigIconColor = DEFAULT_WX_BIGICONCOLOR;
+  condColor    = DEFAULT_WX_CONDCOLOR;
+  detailColor  = DEFAULT_WX_DETAILCOLOR;
+  hourlyColor  = DEFAULT_WX_HOURLYCOLOR;
+  hourlyPop    = DEFAULT_WX_HOURLYPOP;
+  dailyColor   = DEFAULT_WX_DAILYCOLOR;
+  dailyPop     = DEFAULT_WX_DAILYPOP;
+  trendColor   = DEFAULT_WX_TRENDCOLOR;
 }
 
 void WeatherSettings::toJson(JsonObject o) const {
-  o["lat"]         = lat;
-  o["lon"]         = lon;
-  o["unitF"]       = unitF;
-  o["refreshSec"]  = refreshSec;
-  o["showTemp"]    = showTemp;
-  o["showCond"]    = showCond;
-  o["showPrecip"]  = showPrecip;
-  o["showTrend"]   = showTrend;
-  o["tempSize"]    = tempSize;
-  o["condSize"]    = condSize;
-  o["precipSize"]  = precipSize;
-  o["tempColor"]   = tempColor;
-  o["condColor"]   = condColor;
-  o["precipColor"] = precipColor;
-  o["trendColor"]  = trendColor;
+  o["lat"]          = lat;
+  o["lon"]          = lon;
+  o["unitF"]        = unitF;
+  o["windUnit"]     = windUnit;
+  o["precipPct"]    = precipPct;
+  o["refreshSec"]   = refreshSec;
+
+  o["showTemp"]     = showTemp;
+  o["showBigIcon"]  = showBigIcon;
+  o["showCond"]     = showCond;
+  o["showFeels"]    = showFeels;
+  o["showHum"]      = showHum;
+  o["showWind"]     = showWind;
+  o["showPrecip"]   = showPrecip;
+  o["showHourly"]   = showHourly;
+  o["showDaily"]    = showDaily;
+  o["showTrend"]    = showTrend;
+
+  o["hourlyCount"]  = hourlyCount;
+  o["hourlyStep"]   = hourlyStep;
+  o["hrHour"]       = hrHour;
+  o["hrIcon"]       = hrIcon;
+  o["hrTemp"]       = hrTemp;
+  o["hrPop"]        = hrPop;
+
+  o["dailyCount"]   = dailyCount;
+  o["dyDay"]        = dyDay;
+  o["dyIcon"]       = dyIcon;
+  o["dyTemps"]      = dyTemps;
+  o["dyPop"]        = dyPop;
+
+  o["trendLabels"]  = trendLabels;
+
+  o["tempSize"]     = tempSize;
+  o["condSize"]     = condSize;
+  o["detailSize"]   = detailSize;
+  o["hourlySize"]   = hourlySize;
+  o["dailySize"]    = dailySize;
+
+  o["tempColor"]    = tempColor;
+  o["bigIconColor"] = bigIconColor;
+  o["condColor"]    = condColor;
+  o["detailColor"]  = detailColor;
+  o["hourlyColor"]  = hourlyColor;
+  o["hourlyPop"]    = hourlyPop;
+  o["dailyColor"]   = dailyColor;
+  o["dailyPop"]     = dailyPop;
+  o["trendColor"]   = trendColor;
 }
 
 void WeatherSettings::fromJson(JsonObjectConst o) {
-  if (o["lat"].is<float>())         lat = constrain((float)o["lat"], -90.0f, 90.0f);
-  if (o["lon"].is<float>())         lon = constrain((float)o["lon"], -180.0f, 180.0f);
-  if (o["unitF"].is<bool>())        unitF = o["unitF"];
-  if (o["refreshSec"].is<int>())    refreshSec = (uint16_t)constrain((int)o["refreshSec"], WX_REFRESH_MIN, WX_REFRESH_MAX);
-  if (o["showTemp"].is<bool>())     showTemp = o["showTemp"];
-  if (o["showCond"].is<bool>())     showCond = o["showCond"];
-  if (o["showPrecip"].is<bool>())   showPrecip = o["showPrecip"];
-  if (o["showTrend"].is<bool>())    showTrend = o["showTrend"];
-  if (o["tempSize"].is<int>())      tempSize = (uint8_t)constrain((int)o["tempSize"], 0, CLK_NUM_FONT_MAX);
-  if (o["condSize"].is<int>())      condSize = (uint8_t)constrain((int)o["condSize"], 0, CLK_PROP_FONT_MAX);
-  if (o["precipSize"].is<int>())    precipSize = (uint8_t)constrain((int)o["precipSize"], 0, CLK_PROP_FONT_MAX);
-  if (o["tempColor"].is<int>())     tempColor = (uint8_t)constrain((int)o["tempColor"], 0, WX_COL_MAX);
-  if (o["condColor"].is<int>())     condColor = (uint8_t)constrain((int)o["condColor"], 0, WX_COL_MAX);
-  if (o["precipColor"].is<int>())   precipColor = (uint8_t)constrain((int)o["precipColor"], 0, WX_COL_MAX);
-  if (o["trendColor"].is<int>())    trendColor = (uint8_t)constrain((int)o["trendColor"], 0, WX_COL_MAX);
+  if (o["lat"].is<float>())        lat = constrain((float)o["lat"], -90.0f, 90.0f);
+  if (o["lon"].is<float>())        lon = constrain((float)o["lon"], -180.0f, 180.0f);
+  if (o["unitF"].is<bool>())       unitF = o["unitF"];
+  if (o["windUnit"].is<int>())     windUnit = (uint8_t)constrain((int)o["windUnit"], 0, WX_WIND_MAX);
+  if (o["precipPct"].is<bool>())   precipPct = o["precipPct"];
+  if (o["refreshSec"].is<int>())   refreshSec = (uint16_t)constrain((int)o["refreshSec"], WX_REFRESH_MIN, WX_REFRESH_MAX);
+
+  if (o["showTemp"].is<bool>())    showTemp = o["showTemp"];
+  if (o["showBigIcon"].is<bool>()) showBigIcon = o["showBigIcon"];
+  if (o["showCond"].is<bool>())    showCond = o["showCond"];
+  if (o["showFeels"].is<bool>())   showFeels = o["showFeels"];
+  if (o["showHum"].is<bool>())     showHum = o["showHum"];
+  if (o["showWind"].is<bool>())    showWind = o["showWind"];
+  if (o["showPrecip"].is<bool>())  showPrecip = o["showPrecip"];
+  if (o["showHourly"].is<bool>())  showHourly = o["showHourly"];
+  if (o["showDaily"].is<bool>())   showDaily = o["showDaily"];
+  if (o["showTrend"].is<bool>())   showTrend = o["showTrend"];
+
+  if (o["hourlyCount"].is<int>())  hourlyCount = (uint8_t)constrain((int)o["hourlyCount"], WX_HOURLY_COUNT_MIN, WX_HOURLY_COUNT_MAX);
+  if (o["hourlyStep"].is<int>())   hourlyStep = (uint8_t)constrain((int)o["hourlyStep"], WX_HOURLY_STEP_MIN, WX_HOURLY_STEP_MAX);
+  if (o["hrHour"].is<bool>())      hrHour = o["hrHour"];
+  if (o["hrIcon"].is<bool>())      hrIcon = o["hrIcon"];
+  if (o["hrTemp"].is<bool>())      hrTemp = o["hrTemp"];
+  if (o["hrPop"].is<bool>())       hrPop = o["hrPop"];
+
+  if (o["dailyCount"].is<int>())   dailyCount = (uint8_t)constrain((int)o["dailyCount"], WX_DAILY_COUNT_MIN, WX_DAILY_COUNT_MAX);
+  if (o["dyDay"].is<bool>())       dyDay = o["dyDay"];
+  if (o["dyIcon"].is<bool>())      dyIcon = o["dyIcon"];
+  if (o["dyTemps"].is<bool>())     dyTemps = o["dyTemps"];
+  if (o["dyPop"].is<bool>())       dyPop = o["dyPop"];
+
+  if (o["trendLabels"].is<bool>()) trendLabels = o["trendLabels"];
+
+  if (o["tempSize"].is<int>())     tempSize = (uint8_t)constrain((int)o["tempSize"], 0, CLK_NUM_FONT_MAX);
+  if (o["condSize"].is<int>())     condSize = (uint8_t)constrain((int)o["condSize"], 0, CLK_PROP_FONT_MAX);
+  if (o["detailSize"].is<int>())   detailSize = (uint8_t)constrain((int)o["detailSize"], 0, CLK_PROP_FONT_MAX);
+  if (o["hourlySize"].is<int>())   hourlySize = (uint8_t)constrain((int)o["hourlySize"], 0, CLK_PROP_FONT_MAX);
+  if (o["dailySize"].is<int>())    dailySize = (uint8_t)constrain((int)o["dailySize"], 0, CLK_PROP_FONT_MAX);
+
+  if (o["tempColor"].is<int>())    tempColor = (uint8_t)constrain((int)o["tempColor"], 0, WX_COL_MAX);
+  if (o["bigIconColor"].is<int>()) bigIconColor = (uint8_t)constrain((int)o["bigIconColor"], 0, WX_COL_MAX);
+  if (o["condColor"].is<int>())    condColor = (uint8_t)constrain((int)o["condColor"], 0, WX_COL_MAX);
+  if (o["detailColor"].is<int>())  detailColor = (uint8_t)constrain((int)o["detailColor"], 0, WX_COL_MAX);
+  if (o["hourlyColor"].is<int>())  hourlyColor = (uint8_t)constrain((int)o["hourlyColor"], 0, WX_COL_MAX);
+  if (o["hourlyPop"].is<int>())    hourlyPop = (uint8_t)constrain((int)o["hourlyPop"], 0, WX_COL_MAX);
+  if (o["dailyColor"].is<int>())   dailyColor = (uint8_t)constrain((int)o["dailyColor"], 0, WX_COL_MAX);
+  if (o["dailyPop"].is<int>())     dailyPop = (uint8_t)constrain((int)o["dailyPop"], 0, WX_COL_MAX);
+  if (o["trendColor"].is<int>())   trendColor = (uint8_t)constrain((int)o["trendColor"], 0, WX_COL_MAX);
 }
 
 // ===========================================================================

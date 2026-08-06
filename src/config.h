@@ -144,44 +144,106 @@
 #define DEFAULT_CLK_DATESIZE     4    // helvB18_tr     (index 4 = original look)
 
 // ---------------------------------------------------------------------------
-// Weather face (MODE_WEATHER) — current conditions + a 12h temperature trend,
-// fetched from Open-Meteo over plain HTTP (no API key, no TLS). Every element is
-// individually configurable in the web UI: per-element size sliders map into the
-// clock's font tables (temperature -> CLK_NUM_FONTS big look, condition/precip ->
-// CLK_PROP_FONTS), and per-element colours reuse the clock's CLK_COL_* presets
-// (same order, mirrored in the web UI <select>).
+// Weather face (MODE_WEATHER) — a fully composable weather screen fed by
+// Open-Meteo over plain HTTP (no API key, no TLS). The face is a stack of
+// independently toggleable blocks (primary temp+icon, condition, detail line,
+// hourly strip, daily strip, temperature trend). Sizes map into the clock's
+// font tables; colours reuse the clock's CLK_COL_* presets (same order,
+// mirrored in the web UI <select>). Weather icons come from the vendored u8g2
+// open_iconic_weather fonts (see features/weather/weather_icons.h).
 // ---------------------------------------------------------------------------
 #define WX_COL_MAX  CLK_COL_MAX          // colours share the clock preset list
 
 // Open-Meteo forecast endpoint (plain HTTP). The device appends the query with
-// latitude/longitude/units at fetch time. Response is ~400-900 bytes.
+// latitude/longitude/units at fetch time. One request returns current + hourly
+// (12 h) + daily (4 d); an ArduinoJson filter keeps only the rendered fields so
+// the parsed doc stays small (~1.5 KB body, chunked -> getString()).
 #define WX_API_HOST      "api.open-meteo.com"
 #define WX_API_PATH      "/v1/forecast"
-#define WX_HOURLY_POINTS 12              // hourly temps kept for the trend sparkline
+#define WX_HOURLY_POINTS 12              // hourly samples kept (trend + hourly strip)
+#define WX_DAILY_POINTS  4               // daily samples kept (daily strip)
+
+// Weather-icon glyphs in the open_iconic_weather fonts. The font carries exactly
+// SIX glyphs (verified by decoding the bitmaps): a plain cloud, a sun-behind-
+// cloud, a crescent moon, a rain cloud, a raindrop, and a full sun. wmoIcon()
+// (weather_icons.h) maps a WMO weather_code (+ is_day) onto the best match.
+#define WX_ICON_CLOUD    0x40            // overcast / fog
+#define WX_ICON_SUNCLOUD 0x41            // partly cloudy
+#define WX_ICON_MOON     0x42            // clear at night
+#define WX_ICON_RAIN     0x43            // drizzle / rain / showers / thunderstorm
+#define WX_ICON_DROP     0x44            // raindrop — snow stand-in (no snowflake glyph)
+#define WX_ICON_SUN      0x45            // clear (day)
+
+// Wind-speed unit (Open-Meteo wind_speed_unit).
+#define WX_WIND_KMH  0
+#define WX_WIND_MPH  1
+#define WX_WIND_MS   2
+#define WX_WIND_MAX  WX_WIND_MS
+
+// Hourly / daily strip bounds (web UI clamps to these).
+#define WX_HOURLY_COUNT_MIN 3
+#define WX_HOURLY_COUNT_MAX 6
+#define WX_HOURLY_STEP_MIN  1
+#define WX_HOURLY_STEP_MAX  3
+#define WX_DAILY_COUNT_MIN  2
+#define WX_DAILY_COUNT_MAX  4
 
 #define DEFAULT_WX_LAT        53.55f     // Hamburg
 #define DEFAULT_WX_LON        9.99f
 #define DEFAULT_WX_UNITF      false      // false = Celsius, true = Fahrenheit
+#define DEFAULT_WX_WINDUNIT   WX_WIND_KMH
+#define DEFAULT_WX_PRECIPPCT  false      // detail precip: false = mm, true = current pop %
 #define DEFAULT_WX_REFRESH    600        // seconds between fetches
 #define WX_REFRESH_MIN        60
 #define WX_REFRESH_MAX        21600      // 6 h
 #define WX_RETRY_SEC          30         // faster retry after a failed fetch
 
-#define DEFAULT_WX_SHOWTEMP    true
-#define DEFAULT_WX_SHOWCOND    true
-#define DEFAULT_WX_SHOWPRECIP  true
-#define DEFAULT_WX_SHOWTREND   true
+// ---- block toggles (defaults = a good-looking "Stunden" preset) ----
+#define DEFAULT_WX_SHOWTEMP     true     // A: big current temperature
+#define DEFAULT_WX_SHOWBIGICON  true     // A: big weather icon beside the temp
+#define DEFAULT_WX_SHOWCOND     true     // B: German condition text
+#define DEFAULT_WX_SHOWFEELS    false    // C: "Gefuehlt 20°"
+#define DEFAULT_WX_SHOWHUM      false    // C: "Luft 61%"
+#define DEFAULT_WX_SHOWWIND     false    // C: "Wind 12 km/h"
+#define DEFAULT_WX_SHOWPRECIP   false    // C: "Regen 0.0 mm" (or pop %)
+#define DEFAULT_WX_SHOWHOURLY   true     // D: hourly strip
+#define DEFAULT_WX_SHOWDAILY    false    // E: daily strip
+#define DEFAULT_WX_SHOWTREND    false    // F: 12h temperature sparkline
+
+// ---- hourly strip (D) ----
+#define DEFAULT_WX_HOURLYCOUNT  4        // columns (WX_HOURLY_COUNT_MIN..MAX)
+#define DEFAULT_WX_HOURLYSTEP   1        // hours between columns (1/2/3)
+#define DEFAULT_WX_HR_HOUR      true     // sub-field: "15h"
+#define DEFAULT_WX_HR_ICON      true     // sub-field: mini icon
+#define DEFAULT_WX_HR_TEMP      true     // sub-field: temperature
+#define DEFAULT_WX_HR_POP       true     // sub-field: rain probability
+
+// ---- daily strip (E) ----
+#define DEFAULT_WX_DAILYCOUNT   3        // columns (WX_DAILY_COUNT_MIN..MAX)
+#define DEFAULT_WX_DY_DAY       true     // sub-field: "Fr"
+#define DEFAULT_WX_DY_ICON      true     // sub-field: mini icon
+#define DEFAULT_WX_DY_TEMPS     true     // sub-field: "24/16"
+#define DEFAULT_WX_DY_POP       true     // sub-field: rain %
+
+#define DEFAULT_WX_TRENDLABELS  false    // F: min/max labels on the sparkline
 
 // Sizes are indices into the clock font tables (see u8g2_clock_fonts.h). The web
 // UI slider max is the matching CLK_*_FONT_MAX. Temperature uses the big number
-// fonts; condition/precipitation use the proportional letter fonts.
+// fonts; everything else uses the proportional letter fonts.
 #define DEFAULT_WX_TEMPSIZE    5         // CLK_NUM_FONTS  index (logisoso62_tn)
-#define DEFAULT_WX_CONDSIZE    4         // CLK_PROP_FONTS index (helvB18_tr)
-#define DEFAULT_WX_PRECIPSIZE  2         // CLK_PROP_FONTS index (helvB12_tr)
+#define DEFAULT_WX_CONDSIZE    3         // CLK_PROP_FONTS index (helvB14_tr)
+#define DEFAULT_WX_DETAILSIZE  1         // CLK_PROP_FONTS index (helvB10_tr)
+#define DEFAULT_WX_HOURLYSIZE  0         // CLK_PROP_FONTS index (helvB08_tr)
+#define DEFAULT_WX_DAILYSIZE   0         // CLK_PROP_FONTS index (helvB08_tr)
 
 #define DEFAULT_WX_TEMPCOLOR    CLK_COL_WHITE
+#define DEFAULT_WX_BIGICONCOLOR CLK_COL_YELLOW
 #define DEFAULT_WX_CONDCOLOR    CLK_COL_SELFBLUE
-#define DEFAULT_WX_PRECIPCOLOR  CLK_COL_GRAY
+#define DEFAULT_WX_DETAILCOLOR  CLK_COL_GRAY
+#define DEFAULT_WX_HOURLYCOLOR  CLK_COL_WHITE
+#define DEFAULT_WX_HOURLYPOP    CLK_COL_TEAL
+#define DEFAULT_WX_DAILYCOLOR   CLK_COL_WHITE
+#define DEFAULT_WX_DAILYPOP     CLK_COL_TEAL
 #define DEFAULT_WX_TRENDCOLOR   CLK_COL_TEAL
 
 // Claude usage mode: once data stops arriving for this long (PC asleep, daemon
