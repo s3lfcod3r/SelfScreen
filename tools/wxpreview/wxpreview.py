@@ -158,8 +158,9 @@ SAMPLE = {
     "hours": [  # (hour, temp, pop, code)
         (12,22,10,3),(13,23,10,2),(14,24,20,2),(15,24,30,3),(16,23,40,61),(17,22,40,61),
         (18,21,30,3),(19,20,20,3),(20,20,10,2),(21,20,10,0),(22,21,0,0),(23,20,0,0)],
-    "days": [  # (wday, tmax, tmin, popMax, code)
-        (3,24,16,40,3),(4,25,15,20,2),(5,21,14,60,61),(6,23,15,10,0)],
+    "days": [  # (wday, tmax, tmin, popMax, code) — 7 days (WX_DAILY_POINTS)
+        (3,24,16,40,3),(4,25,15,20,2),(5,21,14,60,61),(6,23,15,10,0),
+        (0,22,14,30,3),(1,26,17,10,45),(2,24,16,50,80)],
 }
 WD_DE = ["So","Mo","Di","Mi","Do","Fr","Sa"]
 COND_DE = {0:"Klar",1:"Leicht bewoelkt",2:"Leicht bewoelkt",3:"Bewoelkt",45:"Nebel",48:"Nebel",
@@ -455,6 +456,89 @@ def draw_trend(draw, d, x, y, w, h, col, labels):
         draw.text((2,y+h-10), "%d"%round(mn), font=f, fill=col)
 
 # ---------------------------------------------------------------------------
+# Full-screen pages (mirror WeatherMode.cpp renderTempTrend/RainTrend/Days7)
+# ---------------------------------------------------------------------------
+WX_PG_TITLE_Y = 6
+WX_PG_MARGIN_B = 26
+
+def _th(draw, s, font):
+    b = draw.textbbox((0, 0), s, font=font); return b[3]-b[1]
+
+def draw_page_title(draw, title, col):
+    f = ttf_for_cap(prop_ascent(2))          # helvB12
+    h = prop_ink_desc(2)
+    draw_centered(draw, title, WX_PG_TITLE_Y, h, f, col)
+    return WX_PG_TITLE_Y + h
+
+def render_page_now(w, d):
+    img, _shrunk, _sizes = render(w, d, "after")
+    return img
+
+def render_page_temp(w, d):
+    img = Image.new("RGB", (W, H), C_BLACK); draw = ImageDraw.Draw(img)
+    curveCol = wxColor(w["trendColor"]); valCol = wxColor(w["tempColor"])
+    titleBot = draw_page_title(draw, "Temperatur", wxColor(w["condColor"]))
+    hs = d["hours"]; n = len(hs); temps = [p[1] for p in hs]
+    mn = min(temps); mx = max(temps); span = max(0.5, mx-mn)
+    X0 = 30; X1 = W-12; Y0 = titleBot+24; Y1 = H-WX_PG_MARGIN_B; PH = Y1-Y0
+    f8 = ttf_for_cap(prop_ascent(0))
+    draw.text((2, Y0), "%d" % round(mx), font=f8, fill=valCol)
+    draw.text((2, Y1-_th(draw, "8", f8)), "%d" % round(mn), font=f8, fill=valCol)
+    draw.line([X0, Y1, X1, Y1], fill=C_GRAY, width=1)
+    pts = []
+    for i in range(n):
+        px = X0 + (X1-X0)*i//(n-1); py = Y1 - int((temps[i]-mn)/span*PH); pts.append((px, py))
+    for i in range(1, n):
+        draw.line([pts[i-1][0], pts[i-1][1], pts[i][0], pts[i][1]], fill=curveCol, width=2)
+    for (px, py) in pts:
+        draw.ellipse([px-2, py-2, px+2, py+2], fill=curveCol)
+    f10 = ttf_for_cap(prop_ascent(1)); fh = _th(draw, "8", f10)
+    marks = [0, n//2, n-1]
+    for i in marks:
+        px, py = pts[i]; s = "%d" % round(temps[i])
+        ty = py-4-fh
+        if ty < Y0: ty = py+4
+        draw_centered_at(draw, s, px, ty, fh, f10, valCol)
+    for i in marks:
+        px, _py = pts[i]; s = "%dh" % hs[i][0]
+        draw_centered_at(draw, s, px, Y1+4, 16, f8, C_GRAY)
+    return img
+
+def render_page_rain(w, d):
+    img = Image.new("RGB", (W, H), C_BLACK); draw = ImageDraw.Draw(img)
+    barCol = wxColor(w["hourlyPop"])
+    titleBot = draw_page_title(draw, "Regen %", wxColor(w["condColor"]))
+    hs = d["hours"]; n = len(hs)
+    X0 = 16; X1 = W-8; Y0 = titleBot+20; Y1 = H-WX_PG_MARGIN_B; PH = Y1-Y0
+    slot = (X1-X0)//n; barW = max(3, slot*3//4)
+    draw.line([X0, Y1, X1, Y1], fill=C_GRAY, width=1)
+    f8 = ttf_for_cap(prop_ascent(0))
+    for i in range(n):
+        cx = X0 + slot*i + slot//2; pop = hs[i][2]; bh = PH*pop//100; by = Y1-bh
+        draw.rectangle([cx-barW//2, by, cx-barW//2+barW, Y1], fill=barCol)
+        if pop > 0:
+            draw_centered_at(draw, "%d" % pop, cx, by-13, 12, f8, barCol)
+        draw_centered_at(draw, "%d" % hs[i][0], cx, Y1+4, 16, f8, C_GRAY)
+    return img
+
+def render_page_days(w, d):
+    img = Image.new("RGB", (W, H), C_BLACK); draw = ImageDraw.Draw(img)
+    dayCol = wxColor(w["dailyColor"]); popCol = wxColor(w["dailyPop"])
+    titleBot = draw_page_title(draw, "7 Tage", wxColor(w["condColor"]))
+    days = d["days"]; rows = min(len(days), 7)
+    top = titleBot+4; rowH = (H-top)//rows
+    fR = ttf_for_cap(prop_ascent(2))         # helvB12
+    CX_DAY = 24; CX_ICON = 72; CX_TEMP = 148; CX_POP = 212
+    for r in range(rows):
+        wday, tmax, tmin, popMax, code = days[r]; ry = top + rowH*r
+        draw_centered_at(draw, WD_DE[wday], CX_DAY, ry, rowH, fR, dayCol)
+        icol = icon_semantic_color(code, True) if w["iconColorMode"] == 0 else dayCol
+        draw_icon(draw, wmo_icon(code, True), CX_ICON, ry+(rowH-16)//2, 16, icol)
+        draw_centered_at(draw, "%d/%d" % (round(tmax), round(tmin)), CX_TEMP, ry, rowH, fR, dayCol)
+        draw_centered_at(draw, "%d%%" % popMax, CX_POP, ry, rowH, fR, popCol)
+    return img
+
+# ---------------------------------------------------------------------------
 # Scenarios
 # ---------------------------------------------------------------------------
 def scenarios():
@@ -492,6 +576,20 @@ def main():
             paths.append(p)
             print(f"{tag:40s} sizes={sizes}")
     print("\nWrote", len(paths), "PNGs to", OUT)
+
+    # ---- deliverable: the four full-screen pages (default settings) ----
+    w = base_settings()
+    page_render = {
+        "page_now":  render_page_now,
+        "page_temp": render_page_temp,
+        "page_rain": render_page_rain,
+        "page_days": render_page_days,
+    }
+    print("\nPages:")
+    for name, fn in page_render.items():
+        p = os.path.join(OUT, name + ".png")
+        fn(w, d).save(p)
+        print(" ", os.path.abspath(p))
 
 if __name__ == "__main__":
     main()

@@ -248,28 +248,80 @@ static void drawTrend(Arduino_GFX* gfx, const WeatherData& d, int x, int y, int 
 void WeatherMode::begin(const Settings& s) {
   weatherInit(s);
   needFull_ = true;
+  pageReset_ = true;
   lastStamp_ = 0xFFFFFFFF;
+  lastPage_ = 0xFF;
 }
 
 void WeatherMode::invalidate(const Settings& s) {
   weatherInit(s);
   weatherForceRefresh();                    // lat/lon/units may have changed -> refetch
   needFull_ = true;
+  pageReset_ = true;                         // page set/order/dwell may have changed
   lastStamp_ = 0xFFFFFFFF;
+  lastPage_ = 0xFF;
+}
+
+// Ordered list of enabled pages (ascending order number, ties by page id). Packs
+// (order<<4 | id) into one comparable byte and insertion-sorts the small set.
+uint8_t WeatherMode::buildPageList(const WeatherSettings& w, uint8_t* out) const {
+  const bool    en[WX_PAGE_COUNT] = { w.pageNow, w.pageTemp, w.pageRain, w.pageDays };
+  const uint8_t ord[WX_PAGE_COUNT] = { w.orderNow, w.orderTemp, w.orderRain, w.orderDays };
+  uint8_t key[WX_PAGE_COUNT]; uint8_t n = 0;
+  for (uint8_t id = 0; id < WX_PAGE_COUNT; id++) {
+    if (!en[id]) continue;
+    uint8_t k = (uint8_t)((ord[id] << 4) | id);
+    uint8_t j = n;
+    while (j > 0 && key[j - 1] > k) { key[j] = key[j - 1]; out[j] = out[j - 1]; j--; }
+    key[j] = k; out[j] = id; n++;
+  }
+  if (n == 0) { out[0] = WX_PAGE_NOW; n = 1; }   // nothing enabled -> show NOW
+  return n;
 }
 
 void WeatherMode::service(const Settings& s) {
   weatherService(s);                        // fetch on the schedule (no-op between polls)
   const WeatherData& d = weatherGet();
+  const WeatherSettings& w = s.weather;
+
+  // ---- pick the page to show (internal carousel) ----
+  uint8_t pages[WX_PAGE_COUNT];
+  uint8_t nPages = buildPageList(w, pages);
+  bool     cycle  = w.cyclePages && nPages > 1;
+  uint32_t dwellMs = (uint32_t)constrain((int)w.pageDwellSec, WX_PAGEDWELL_MIN, WX_PAGEDWELL_MAX) * 1000UL;
+
+  if (pageReset_) {                          // boot / wake / settings change
+    pageSlot_ = 0;
+    pageStart_ = millis();
+    pageReset_ = false;
+    needFull_ = true;
+  } else if (cycle && (millis() - pageStart_) >= dwellMs) {
+    pageSlot_ = (uint8_t)((pageSlot_ + 1) % nPages);
+    pageStart_ = millis();
+    needFull_ = true;
+  }
+  if (pageSlot_ >= nPages) { pageSlot_ = 0; needFull_ = true; }   // list shrank
+  uint8_t page = pages[pageSlot_];
+
   uint32_t stamp = d.valid ? d.lastOkMs : 0;
-  if (needFull_ || stamp != lastStamp_) {
-    render(s, d);
+  if (needFull_ || stamp != lastStamp_ || page != lastPage_) {
+    renderPage(s, d, page);
     lastStamp_ = stamp;
+    lastPage_ = page;
     needFull_ = false;
   }
 }
 
-void WeatherMode::render(const Settings& s, const WeatherData& d) {
+void WeatherMode::renderPage(const Settings& s, const WeatherData& d, uint8_t page) {
+  switch (page) {
+    case WX_PAGE_TEMP: renderTempTrend(s, d); break;
+    case WX_PAGE_RAIN: renderRainTrend(s, d); break;
+    case WX_PAGE_DAYS: renderDays7(s, d);     break;
+    default:           renderNow(s, d);       break;
+  }
+}
+
+void WeatherMode::renderNow(const Settings& s, const WeatherData& d) {
   Arduino_GFX* gfx = gfxDev();
   if (!gfx) return;
   const WeatherSettings& w = s.weather;
@@ -517,4 +569,209 @@ void WeatherMode::render(const Settings& s, const WeatherData& d) {
   gfx->setFont((const GFXfont*)nullptr);
   gfx->setUTF8Print(false);
   gfx->setTextSize(1);
+}
+
+// ===========================================================================
+// Full-screen pages (TEMP / RAIN / DAYS) — each uses the whole 240x240 with a
+// title band up top, comfortable margins, and NUMBER labels so the values read
+// even across the room. All share the clock font tables + weather colours.
+// ===========================================================================
+static const int WX_PG_TITLE_Y = 6;      // title band top inset
+static const int WX_PG_MARGIN_B = 26;    // bottom band reserved for hour labels
+
+// Draw a centred page title in helvB12; return the y just below the title band.
+static int drawPageTitle(Arduino_GFX* gfx, const char* title, uint16_t col) {
+  gfx->setFont(CLK_PROP_FONTS[2]);       // helvB12
+  int h = fontHeight(gfx, "Mg");
+  drawFontCentered(gfx, title, WX_PG_TITLE_Y, h, col);
+  return WX_PG_TITLE_Y + h;
+}
+
+// Shared page prologue/epilogue keep the UTF8/size flags consistent.
+static void wxPageBegin(Arduino_GFX* gfx) {
+  gfx->setUTF8Print(true);
+  gfx->setTextSize(1);
+  gfx->fillScreen(C_BLACK);
+}
+static void wxPageEnd(Arduino_GFX* gfx) {
+  gfx->setFont((const GFXfont*)nullptr);
+  gfx->setUTF8Print(false);
+  gfx->setTextSize(1);
+}
+
+// ---- TEMP_TREND: full-screen hourly temperature line chart ------------------
+void WeatherMode::renderTempTrend(const Settings& s, const WeatherData& d) {
+  Arduino_GFX* gfx = gfxDev();
+  if (!gfx) return;
+  const WeatherSettings& w = s.weather;
+  wxPageBegin(gfx);
+
+  uint16_t curveCol = wxColor(w.trendColor);
+  uint16_t valCol   = wxColor(w.tempColor);
+  int titleBot = drawPageTitle(gfx, "Temperatur", wxColor(w.condColor));
+
+  if (!d.valid || d.nHours < 2) {
+    gfx->setFont(CLK_PROP_FONTS[3]);
+    drawFontCentered(gfx, d.valid ? "--" : "...", 108, 24, C_GRAY);
+    wxPageEnd(gfx);
+    return;
+  }
+
+  int n = d.nHours;
+  float mn = d.hours[0].temp, mx = d.hours[0].temp;
+  for (int i = 1; i < n; i++) {
+    if (d.hours[i].temp < mn) mn = d.hours[i].temp;
+    if (d.hours[i].temp > mx) mx = d.hours[i].temp;
+  }
+  float span = mx - mn; if (span < 0.5f) span = 0.5f;
+
+  const int X0 = 30, X1 = TFT_WIDTH - 12;
+  const int Y0 = titleBot + 24;              // room above for the max label
+  const int Y1 = TFT_HEIGHT - WX_PG_MARGIN_B;
+  const int PH = Y1 - Y0;
+
+  // y-axis min/max value labels (left inset)
+  char sb[8];
+  gfx->setFont(CLK_PROP_FONTS[0]);           // helvB08
+  snprintf(sb, sizeof(sb), "%d", (int)lroundf(mx));
+  gfx->setTextColor(valCol); gfx->setCursor(2, Y0 + fontHeight(gfx, sb)); gfx->print(sb);
+  snprintf(sb, sizeof(sb), "%d", (int)lroundf(mn));
+  gfx->setCursor(2, Y1); gfx->print(sb);
+
+  gfx->drawLine(X0, Y1, X1, Y1, C_GRAY);     // baseline
+
+  // curve (drawn 2px thick for legibility)
+  int prevX = 0, prevY = 0;
+  for (int i = 0; i < n; i++) {
+    int px = X0 + (X1 - X0) * i / (n - 1);
+    int py = Y1 - (int)((d.hours[i].temp - mn) / span * PH);
+    if (i > 0) { gfx->drawLine(prevX, prevY, px, py, curveCol);
+                 gfx->drawLine(prevX, prevY + 1, px, py + 1, curveCol); }
+    gfx->fillCircle(px, py, 2, curveCol);
+    prevX = px; prevY = py;
+  }
+
+  // NUMBER labels at first / mid / last points
+  gfx->setFont(CLK_PROP_FONTS[1]);           // helvB10
+  int fh = fontHeight(gfx, "8");
+  int marks[3] = { 0, n / 2, n - 1 };
+  for (int m = 0; m < 3; m++) {
+    int i = marks[m];
+    int px = X0 + (X1 - X0) * i / (n - 1);
+    int py = Y1 - (int)((d.hours[i].temp - mn) / span * PH);
+    snprintf(sb, sizeof(sb), "%d", (int)lroundf(d.hours[i].temp));
+    int tw = fontWidth(gfx, sb);
+    int tx = px - tw / 2; if (tx < 0) tx = 0; if (tx + tw > TFT_WIDTH) tx = TFT_WIDTH - tw;
+    int ty = py - 4;                          // baseline above the point
+    if (ty - fh < Y0) ty = py + fh + 4;       // flip below if it would clip the top
+    gfx->setTextColor(valCol); gfx->setCursor(tx, ty); gfx->print(sb);
+  }
+
+  // x-axis hour labels (first / mid / last)
+  gfx->setFont(CLK_PROP_FONTS[0]);
+  for (int m = 0; m < 3; m++) {
+    int i = marks[m];
+    int px = X0 + (X1 - X0) * i / (n - 1);
+    snprintf(sb, sizeof(sb), "%dh", d.hours[i].hour);
+    drawCenteredAt(gfx, sb, px, Y1 + 4, 16, C_GRAY);
+  }
+
+  wxPageEnd(gfx);
+}
+
+// ---- RAIN_TREND: full-screen hourly precipitation-probability bars ----------
+void WeatherMode::renderRainTrend(const Settings& s, const WeatherData& d) {
+  Arduino_GFX* gfx = gfxDev();
+  if (!gfx) return;
+  const WeatherSettings& w = s.weather;
+  wxPageBegin(gfx);
+
+  uint16_t barCol = wxColor(w.hourlyPop);
+  int titleBot = drawPageTitle(gfx, "Regen %", wxColor(w.condColor));
+
+  if (!d.valid || d.nHours < 1) {
+    gfx->setFont(CLK_PROP_FONTS[3]);
+    drawFontCentered(gfx, d.valid ? "--" : "...", 108, 24, C_GRAY);
+    wxPageEnd(gfx);
+    return;
+  }
+
+  int n = d.nHours;
+  const int X0 = 16, X1 = TFT_WIDTH - 8;
+  const int Y0 = titleBot + 20;              // room above the tallest bar for its %
+  const int Y1 = TFT_HEIGHT - WX_PG_MARGIN_B;
+  const int PH = Y1 - Y0;
+  int slot = (X1 - X0) / n;
+  int barW = slot * 3 / 4; if (barW < 3) barW = 3;
+
+  gfx->drawLine(X0, Y1, X1, Y1, C_GRAY);     // baseline (0%)
+
+  char sb[8];
+  for (int i = 0; i < n; i++) {
+    int cx  = X0 + slot * i + slot / 2;
+    int pop = d.hours[i].pop;
+    int bh  = PH * pop / 100;
+    int by  = Y1 - bh;
+    gfx->fillRect(cx - barW / 2, by, barW, bh, barCol);
+    // % value label above the bar
+    if (pop > 0) {
+      gfx->setFont(CLK_PROP_FONTS[0]);
+      snprintf(sb, sizeof(sb), "%d", pop);
+      drawCenteredAt(gfx, sb, cx, by - 13, 12, barCol);
+    }
+    // hour label under the baseline
+    gfx->setFont(CLK_PROP_FONTS[0]);
+    snprintf(sb, sizeof(sb), "%d", d.hours[i].hour);
+    drawCenteredAt(gfx, sb, cx, Y1 + 4, 16, C_GRAY);
+  }
+
+  wxPageEnd(gfx);
+}
+
+// ---- DAYS7: 7-day forecast, one row per day --------------------------------
+void WeatherMode::renderDays7(const Settings& s, const WeatherData& d) {
+  Arduino_GFX* gfx = gfxDev();
+  if (!gfx) return;
+  const WeatherSettings& w = s.weather;
+  wxPageBegin(gfx);
+
+  uint16_t dayCol = wxColor(w.dailyColor);
+  uint16_t popCol = wxColor(w.dailyPop);
+  int titleBot = drawPageTitle(gfx, "7 Tage", wxColor(w.condColor));
+
+  if (!d.valid || d.nDays < 1) {
+    gfx->setFont(CLK_PROP_FONTS[3]);
+    drawFontCentered(gfx, d.valid ? "--" : "...", 108, 24, C_GRAY);
+    wxPageEnd(gfx);
+    return;
+  }
+
+  int rows = d.nDays > WX_DAILY_POINTS ? WX_DAILY_POINTS : d.nDays;
+  int top  = titleBot + 4;
+  int rowH = (TFT_HEIGHT - top) / rows;
+
+  // Column centres (weekday | mini icon | max/min | rain%).
+  const int CX_DAY = 24, CX_ICON = 72, CX_TEMP = 148, CX_POP = 212;
+  const uint8_t* rowFont = CLK_PROP_FONTS[2];   // helvB12 — legible for 7 rows
+
+  char sb[12];
+  for (int r = 0; r < rows; r++) {
+    const WxDay& dd = d.days[r];
+    int ry = top + rowH * r;
+
+    gfx->setFont(rowFont);
+    drawCenteredAt(gfx, kWeekdayShortDE[dd.wday < 7 ? dd.wday : 0], CX_DAY, ry, rowH, dayCol);
+
+    uint16_t iconCol = wxResolveIconColor(w, dd.code, true);
+    drawWeatherIcon(gfx, wmoIcon(dd.code, true), CX_ICON, ry, rowH, false, iconCol);
+
+    gfx->setFont(rowFont);
+    snprintf(sb, sizeof(sb), "%d/%d", (int)lroundf(dd.tmax), (int)lroundf(dd.tmin));
+    drawCenteredAt(gfx, sb, CX_TEMP, ry, rowH, dayCol);
+
+    snprintf(sb, sizeof(sb), "%d%%", dd.popMax);
+    drawCenteredAt(gfx, sb, CX_POP, ry, rowH, popCol);
+  }
+
+  wxPageEnd(gfx);
 }

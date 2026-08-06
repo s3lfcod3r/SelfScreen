@@ -161,7 +161,7 @@
 #define WX_API_HOST      "api.open-meteo.com"
 #define WX_API_PATH      "/v1/forecast"
 #define WX_HOURLY_POINTS 12              // hourly samples kept (trend + hourly strip)
-#define WX_DAILY_POINTS  4               // daily samples kept (daily strip)
+#define WX_DAILY_POINTS  7               // daily samples kept (daily strip + 7-day page)
 
 // Weather-icon glyphs in the open_iconic_weather fonts. The font carries exactly
 // SIX glyphs (verified by decoding the bitmaps): a plain cloud, a sun-behind-
@@ -198,6 +198,30 @@
 #define WX_ICONCOL_SEMANTIC 0            // colour by weather (sun=yellow, cloud=grey, rain=blue-grey…)
 #define WX_ICONCOL_FIXED    1            // one preset colour for every icon (bigIconColor)
 #define WX_ICONCOL_MAX      WX_ICONCOL_FIXED
+
+// ---- internal page carousel ----------------------------------------------
+// The weather face renders one of four FULL-SCREEN pages at a time; when
+// cyclePages is on and more than one page is enabled it rotates through the
+// enabled pages (ascending order) every pageDwellSec. This is independent of
+// the device-wide MODE_CAROUSEL: when Weather is the active mode it runs its
+// own page cycle; the main carousel only decides when Weather is on screen.
+#define WX_PAGE_NOW   0                  // current conditions (temp + icon + rain%)
+#define WX_PAGE_TEMP  1                  // full-screen hourly temperature chart
+#define WX_PAGE_RAIN  2                  // full-screen hourly rain-probability bars
+#define WX_PAGE_DAYS  3                  // 7-day forecast rows
+#define WX_PAGE_COUNT 4
+#define WX_PAGEDWELL_MIN 2               // seconds a page stays before rotating
+#define WX_PAGEDWELL_MAX 60
+#define DEFAULT_WX_CYCLEPAGES true       // rotate through the enabled pages
+#define DEFAULT_WX_PAGEDWELL  6          // seconds per page
+#define DEFAULT_WX_PAGE_NOW   true       // page enable flags (all on by default)
+#define DEFAULT_WX_PAGE_TEMP  true
+#define DEFAULT_WX_PAGE_RAIN  true
+#define DEFAULT_WX_PAGE_DAYS  true
+#define DEFAULT_WX_ORDER_NOW   1         // rotation order (1..4, ascending = first)
+#define DEFAULT_WX_ORDER_TEMP  2
+#define DEFAULT_WX_ORDER_RAIN  3
+#define DEFAULT_WX_ORDER_DAYS  4
 
 #define DEFAULT_WX_LAT        53.55f     // Hamburg
 #define DEFAULT_WX_LON        9.99f

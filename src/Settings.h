@@ -62,6 +62,18 @@ struct WeatherSettings {
   uint8_t  iconColorMode;// WX_ICONCOL_* (semantic / fixed) for all weather icons
   uint16_t refreshSec;   // seconds between fetches
 
+  // --- internal page carousel (which full-screen pages, order, dwell) ---
+  bool     cyclePages;   // rotate through the enabled pages
+  uint8_t  pageDwellSec; // seconds each page stays before rotating
+  bool     pageNow;      // enable: current-conditions page
+  bool     pageTemp;     // enable: hourly temperature chart page
+  bool     pageRain;     // enable: hourly rain-probability page
+  bool     pageDays;     // enable: 7-day forecast page
+  uint8_t  orderNow;     // rotation order (1..4, ascending = shown first)
+  uint8_t  orderTemp;
+  uint8_t  orderRain;
+  uint8_t  orderDays;
+
   // --- block toggles ---
   bool     showTemp;     // A: big temperature
   bool     showBigIcon;  // A: big weather icon beside the temp

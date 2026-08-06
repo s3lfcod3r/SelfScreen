@@ -83,6 +83,17 @@ void WeatherSettings::setDefaults() {
   iconColorMode= DEFAULT_WX_ICONCOLORMODE;
   refreshSec   = DEFAULT_WX_REFRESH;
 
+  cyclePages   = DEFAULT_WX_CYCLEPAGES;
+  pageDwellSec = DEFAULT_WX_PAGEDWELL;
+  pageNow      = DEFAULT_WX_PAGE_NOW;
+  pageTemp     = DEFAULT_WX_PAGE_TEMP;
+  pageRain     = DEFAULT_WX_PAGE_RAIN;
+  pageDays     = DEFAULT_WX_PAGE_DAYS;
+  orderNow     = DEFAULT_WX_ORDER_NOW;
+  orderTemp    = DEFAULT_WX_ORDER_TEMP;
+  orderRain    = DEFAULT_WX_ORDER_RAIN;
+  orderDays    = DEFAULT_WX_ORDER_DAYS;
+
   showTemp     = DEFAULT_WX_SHOWTEMP;
   showBigIcon  = DEFAULT_WX_SHOWBIGICON;
   showCond     = DEFAULT_WX_SHOWCOND;
@@ -134,6 +145,17 @@ void WeatherSettings::toJson(JsonObject o) const {
   o["precipMode"]   = precipMode;
   o["iconColorMode"]= iconColorMode;
   o["refreshSec"]   = refreshSec;
+
+  o["cyclePages"]   = cyclePages;
+  o["pageDwellSec"] = pageDwellSec;
+  o["pageNow"]      = pageNow;
+  o["pageTemp"]     = pageTemp;
+  o["pageRain"]     = pageRain;
+  o["pageDays"]     = pageDays;
+  o["orderNow"]     = orderNow;
+  o["orderTemp"]    = orderTemp;
+  o["orderRain"]    = orderRain;
+  o["orderDays"]    = orderDays;
 
   o["showTemp"]     = showTemp;
   o["showBigIcon"]  = showBigIcon;
@@ -189,6 +211,19 @@ void WeatherSettings::fromJson(JsonObjectConst o) {
   else if (o["precipPct"].is<bool>()) precipMode = o["precipPct"] ? WX_PRECIP_PCT : WX_PRECIP_MM;
   if (o["iconColorMode"].is<int>()) iconColorMode = (uint8_t)constrain((int)o["iconColorMode"], 0, WX_ICONCOL_MAX);
   if (o["refreshSec"].is<int>())   refreshSec = (uint16_t)constrain((int)o["refreshSec"], WX_REFRESH_MIN, WX_REFRESH_MAX);
+
+  // Internal page carousel. Absent keys keep the defaults set above (graceful
+  // migration: an old config.json -> all pages enabled, NOW first, cycling on).
+  if (o["cyclePages"].is<bool>())   cyclePages = o["cyclePages"];
+  if (o["pageDwellSec"].is<int>())  pageDwellSec = (uint8_t)constrain((int)o["pageDwellSec"], WX_PAGEDWELL_MIN, WX_PAGEDWELL_MAX);
+  if (o["pageNow"].is<bool>())      pageNow = o["pageNow"];
+  if (o["pageTemp"].is<bool>())     pageTemp = o["pageTemp"];
+  if (o["pageRain"].is<bool>())     pageRain = o["pageRain"];
+  if (o["pageDays"].is<bool>())     pageDays = o["pageDays"];
+  if (o["orderNow"].is<int>())      orderNow  = (uint8_t)constrain((int)o["orderNow"],  1, WX_PAGE_COUNT);
+  if (o["orderTemp"].is<int>())     orderTemp = (uint8_t)constrain((int)o["orderTemp"], 1, WX_PAGE_COUNT);
+  if (o["orderRain"].is<int>())     orderRain = (uint8_t)constrain((int)o["orderRain"], 1, WX_PAGE_COUNT);
+  if (o["orderDays"].is<int>())     orderDays = (uint8_t)constrain((int)o["orderDays"], 1, WX_PAGE_COUNT);
 
   if (o["showTemp"].is<bool>())    showTemp = o["showTemp"];
   if (o["showBigIcon"].is<bool>()) showBigIcon = o["showBigIcon"];

@@ -222,6 +222,17 @@ small.hint{display:block;color:var(--mut);margin-top:4px;font-size:12px}
    <small class="hint" data-i18n-html="hint_weather">Data from <a href="https://open-meteo.com" target="_blank">Open-Meteo</a> over plain HTTP (no API key). Default location is Hamburg (53.55, 9.99). Condition text is German. A preset just prefills the toggles below — fine-tune anything, then <b>Save settings</b>. Until the first fetch lands the screen shows <code>--</code>.</small>
   </div>
 
+  <div class="card"><h2 data-i18n="h_wx_pages">Pages (full-screen carousel)</h2>
+   <small class="hint" style="margin-top:0" data-i18n-html="hint_pages">The weather screen shows one <b>full-screen</b> page at a time. Tick which pages to include and set the order (1 = shown first). With more than one page and cycling on, it rotates every dwell time. The A&ndash;F blocks below compose the <b>Now</b> page.</small>
+   <div class="chk"><input id="wxCyclePages" type="checkbox"><label data-i18n="chk_cyclepages">Rotate through the enabled pages</label></div>
+   <label data-i18n="l_pagedwell">Dwell &mdash; switch every (s)</label><input id="wxPageDwell" type="number" min="2" max="60">
+   <label class="muted" data-i18n-html="l_pages_rotation">Pages in rotation <span class="muted">(tick to include &middot; number = position)</span></label>
+   <div class="carrow"><input id="wxPageNow" type="checkbox"><span class="nm" data-i18n="page_now">Now (temp + rain%)</span><input id="wxOrderNow" type="number" min="1" max="4"></div>
+   <div class="carrow"><input id="wxPageTemp" type="checkbox"><span class="nm" data-i18n="page_temp">Temperature trend</span><input id="wxOrderTemp" type="number" min="1" max="4"></div>
+   <div class="carrow"><input id="wxPageRain" type="checkbox"><span class="nm" data-i18n="page_rain">Rain %</span><input id="wxOrderRain" type="number" min="1" max="4"></div>
+   <div class="carrow"><input id="wxPageDays" type="checkbox"><span class="nm" data-i18n="page_days">7 days</span><input id="wxOrderDays" type="number" min="1" max="4"></div>
+  </div>
+
   <div class="card"><h2 data-i18n="h_wx_a">A &middot; Now (temperature + icon)</h2>
    <div class="chk"><input id="wxShowTemp" type="checkbox"><label data-i18n="chk_bigtemp">Big temperature (with drawn &deg; ring)</label></div>
    <div class="chk"><input id="wxShowBigIcon" type="checkbox"><label data-i18n="chk_bigicon">Big weather icon beside the temperature</label></div>
@@ -461,6 +472,15 @@ var I18N={
  opt_preset_detail:{en:'Detail (primary + details + hourly)',de:'Detail (Haupt + Details + Stunden)'},
  opt_preset_alles:{en:'All (everything on)',de:'Alles (alles an)'},
  hint_weather:{en:'Data from <a href="https://open-meteo.com" target="_blank">Open-Meteo</a> over plain HTTP (no API key). Default location is Hamburg (53.55, 9.99). Condition text is German. A preset just prefills the toggles below — fine-tune anything, then <b>Save settings</b>. Until the first fetch lands the screen shows <code>--</code>.',de:'Daten von <a href="https://open-meteo.com" target="_blank">Open-Meteo</a> über einfaches HTTP (kein API-Schlüssel). Standardort ist Hamburg (53,55, 9,99). Der Wetter-Text ist deutsch. Eine Vorlage füllt nur die Schalter unten vor — passe alles an und dann <b>Einstellungen speichern</b>. Bis zum ersten Abruf zeigt der Screen <code>--</code>.'},
+ h_wx_pages:{en:'Pages (full-screen carousel)',de:'Seiten (Vollbild-Karussell)'},
+ hint_pages:{en:'The weather screen shows one <b>full-screen</b> page at a time. Tick which pages to include and set the order (1 = shown first). With more than one page and cycling on, it rotates every dwell time. The A&ndash;F blocks below compose the <b>Now</b> page.',de:'Der Wetter-Screen zeigt jeweils eine <b>Vollbild</b>-Seite. Hake an, welche Seiten dabei sind, und lege die Reihenfolge fest (1 = zuerst gezeigt). Bei mehreren Seiten und aktivem Wechsel rotiert er nach der Verweildauer. Die Blöcke A&ndash;F unten gestalten die <b>Jetzt</b>-Seite.'},
+ chk_cyclepages:{en:'Rotate through the enabled pages',de:'Durch die aktivierten Seiten wechseln'},
+ l_pagedwell:{en:'Dwell &mdash; switch every (s)',de:'Verweildauer &mdash; wechseln alle (s)'},
+ l_pages_rotation:{en:'Pages in rotation <span class="muted">(tick to include &middot; number = position)</span>',de:'Seiten im Wechsel <span class="muted">(anhaken zum Einbeziehen &middot; Zahl = Position)</span>'},
+ page_now:{en:'Now (temp + rain%)',de:'Jetzt (Temp + Regen%)'},
+ page_temp:{en:'Temperature trend',de:'Temperaturverlauf'},
+ page_rain:{en:'Rain %',de:'Regen %'},
+ page_days:{en:'7 days',de:'7 Tage'},
  h_wx_a:{en:'A &middot; Now (temperature + icon)',de:'A &middot; Jetzt (Temperatur + Symbol)'},
  chk_bigtemp:{en:'Big temperature (with drawn &deg; ring)',de:'Große Temperatur (mit gezeichnetem &deg;-Ring)'},
  chk_bigicon:{en:'Big weather icon beside the temperature',de:'Großes Wettersymbol neben der Temperatur'},
@@ -720,6 +740,12 @@ function loadConfig(){return j('/api/config').then(function(c){C=c;
  sv('wxPrecipMode',wx.precipMode!=null?wx.precipMode:(wx.precipPct?1:0));
  sv('wxIconColorMode',wx.iconColorMode!=null?wx.iconColorMode:0);
  sv('wxRefresh',wx.refreshSec!=null?wx.refreshSec:600);
+ // page carousel (all pages default on, NOW first, cycling on)
+ sc('wxCyclePages',wx.cyclePages!==false); sv('wxPageDwell',wx.pageDwellSec!=null?wx.pageDwellSec:6);
+ sc('wxPageNow',wx.pageNow!==false); sc('wxPageTemp',wx.pageTemp!==false);
+ sc('wxPageRain',wx.pageRain!==false); sc('wxPageDays',wx.pageDays!==false);
+ sv('wxOrderNow',wx.orderNow!=null?wx.orderNow:1); sv('wxOrderTemp',wx.orderTemp!=null?wx.orderTemp:2);
+ sv('wxOrderRain',wx.orderRain!=null?wx.orderRain:3); sv('wxOrderDays',wx.orderDays!=null?wx.orderDays:4);
  sc('wxShowTemp',wx.showTemp!==false); sc('wxShowBigIcon',wx.showBigIcon!==false); sc('wxShowCond',wx.showCond!==false);
  sc('wxShowFeels',!!wx.showFeels); sc('wxShowHum',!!wx.showHum); sc('wxShowWind',!!wx.showWind); sc('wxShowPrecip',!!wx.showPrecip);
  sc('wxShowHourly',wx.showHourly!==false); sc('wxShowDaily',!!wx.showDaily); sc('wxShowTrend',!!wx.showTrend);
@@ -772,6 +798,10 @@ function collect(){
   unitF:gv('wxUnit')==='1',windUnit:parseInt(gv('wxWindUnit'))||0,
   precipMode:parseInt(gv('wxPrecipMode'))||0,iconColorMode:parseInt(gv('wxIconColorMode'))||0,
   refreshSec:parseInt(gv('wxRefresh'))||600,
+  cyclePages:gc('wxCyclePages'),pageDwellSec:parseInt(gv('wxPageDwell'))||6,
+  pageNow:gc('wxPageNow'),pageTemp:gc('wxPageTemp'),pageRain:gc('wxPageRain'),pageDays:gc('wxPageDays'),
+  orderNow:parseInt(gv('wxOrderNow'))||1,orderTemp:parseInt(gv('wxOrderTemp'))||2,
+  orderRain:parseInt(gv('wxOrderRain'))||3,orderDays:parseInt(gv('wxOrderDays'))||4,
   showTemp:gc('wxShowTemp'),showBigIcon:gc('wxShowBigIcon'),showCond:gc('wxShowCond'),
   showFeels:gc('wxShowFeels'),showHum:gc('wxShowHum'),showWind:gc('wxShowWind'),showPrecip:gc('wxShowPrecip'),
   showHourly:gc('wxShowHourly'),showDaily:gc('wxShowDaily'),showTrend:gc('wxShowTrend'),
