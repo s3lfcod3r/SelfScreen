@@ -58,7 +58,8 @@ struct WeatherSettings {
   float    lon;          // longitude
   bool     unitF;        // false = Celsius, true = Fahrenheit
   uint8_t  windUnit;     // WX_WIND_* (kmh / mph / ms)
-  bool     precipPct;    // detail precip: false = mm, true = current pop %
+  uint8_t  precipMode;   // WX_PRECIP_* (mm / % / both) for the detail line
+  uint8_t  iconColorMode;// WX_ICONCOL_* (semantic / fixed) for all weather icons
   uint16_t refreshSec;   // seconds between fetches
 
   // --- block toggles ---

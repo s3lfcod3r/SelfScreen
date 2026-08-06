@@ -188,11 +188,23 @@
 #define WX_DAILY_COUNT_MIN  2
 #define WX_DAILY_COUNT_MAX  4
 
+// Detail-line precipitation display mode.
+#define WX_PRECIP_MM    0                // "Regen 0.0 mm" (amount)
+#define WX_PRECIP_PCT   1                // "Regen 20%"    (current-hour chance, hours[0].pop)
+#define WX_PRECIP_BOTH  2                // "Regen 20% 0.0mm"
+#define WX_PRECIP_MAX   WX_PRECIP_BOTH
+
+// Weather-icon colouring.
+#define WX_ICONCOL_SEMANTIC 0            // colour by weather (sun=yellow, cloud=grey, rain=blue-grey…)
+#define WX_ICONCOL_FIXED    1            // one preset colour for every icon (bigIconColor)
+#define WX_ICONCOL_MAX      WX_ICONCOL_FIXED
+
 #define DEFAULT_WX_LAT        53.55f     // Hamburg
 #define DEFAULT_WX_LON        9.99f
 #define DEFAULT_WX_UNITF      false      // false = Celsius, true = Fahrenheit
 #define DEFAULT_WX_WINDUNIT   WX_WIND_KMH
-#define DEFAULT_WX_PRECIPPCT  false      // detail precip: false = mm, true = current pop %
+#define DEFAULT_WX_PRECIPMODE WX_PRECIP_PCT   // detail precip: default = % (people want chance)
+#define DEFAULT_WX_ICONCOLORMODE WX_ICONCOL_SEMANTIC
 #define DEFAULT_WX_REFRESH    600        // seconds between fetches
 #define WX_REFRESH_MIN        60
 #define WX_REFRESH_MAX        21600      // 6 h
@@ -205,7 +217,7 @@
 #define DEFAULT_WX_SHOWFEELS    false    // C: "Gefuehlt 20°"
 #define DEFAULT_WX_SHOWHUM      false    // C: "Luft 61%"
 #define DEFAULT_WX_SHOWWIND     false    // C: "Wind 12 km/h"
-#define DEFAULT_WX_SHOWPRECIP   false    // C: "Regen 0.0 mm" (or pop %)
+#define DEFAULT_WX_SHOWPRECIP   true     // C: "Regen 20%" (compact rain chance, on by default)
 #define DEFAULT_WX_SHOWHOURLY   true     // D: hourly strip
 #define DEFAULT_WX_SHOWDAILY    false    // E: daily strip
 #define DEFAULT_WX_SHOWTREND    false    // F: 12h temperature sparkline

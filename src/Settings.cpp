@@ -79,7 +79,8 @@ void WeatherSettings::setDefaults() {
   lon          = DEFAULT_WX_LON;
   unitF        = DEFAULT_WX_UNITF;
   windUnit     = DEFAULT_WX_WINDUNIT;
-  precipPct    = DEFAULT_WX_PRECIPPCT;
+  precipMode   = DEFAULT_WX_PRECIPMODE;
+  iconColorMode= DEFAULT_WX_ICONCOLORMODE;
   refreshSec   = DEFAULT_WX_REFRESH;
 
   showTemp     = DEFAULT_WX_SHOWTEMP;
@@ -130,7 +131,8 @@ void WeatherSettings::toJson(JsonObject o) const {
   o["lon"]          = lon;
   o["unitF"]        = unitF;
   o["windUnit"]     = windUnit;
-  o["precipPct"]    = precipPct;
+  o["precipMode"]   = precipMode;
+  o["iconColorMode"]= iconColorMode;
   o["refreshSec"]   = refreshSec;
 
   o["showTemp"]     = showTemp;
@@ -181,7 +183,11 @@ void WeatherSettings::fromJson(JsonObjectConst o) {
   if (o["lon"].is<float>())        lon = constrain((float)o["lon"], -180.0f, 180.0f);
   if (o["unitF"].is<bool>())       unitF = o["unitF"];
   if (o["windUnit"].is<int>())     windUnit = (uint8_t)constrain((int)o["windUnit"], 0, WX_WIND_MAX);
-  if (o["precipPct"].is<bool>())   precipPct = o["precipPct"];
+  // precip display mode (mm/%/both). Migrate the old boolean precipPct if present
+  // and no new key exists: false -> mm, true -> %.
+  if (o["precipMode"].is<int>())      precipMode = (uint8_t)constrain((int)o["precipMode"], 0, WX_PRECIP_MAX);
+  else if (o["precipPct"].is<bool>()) precipMode = o["precipPct"] ? WX_PRECIP_PCT : WX_PRECIP_MM;
+  if (o["iconColorMode"].is<int>()) iconColorMode = (uint8_t)constrain((int)o["iconColorMode"], 0, WX_ICONCOL_MAX);
   if (o["refreshSec"].is<int>())   refreshSec = (uint16_t)constrain((int)o["refreshSec"], WX_REFRESH_MIN, WX_REFRESH_MAX);
 
   if (o["showTemp"].is<bool>())    showTemp = o["showTemp"];

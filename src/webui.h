@@ -207,7 +207,7 @@ small.hint{display:block;color:var(--mut);margin-top:4px;font-size:12px}
    </div>
    <div class="row">
     <div><label data-i18n="l_rain_detail">Rain in detail line</label>
-     <select id="wxPrecipPct"><option value="0" data-i18n="opt_rain_mm">mm (amount)</option><option value="1" data-i18n="opt_rain_pct">% (chance)</option></select></div>
+     <select id="wxPrecipMode"><option value="0" data-i18n="opt_rain_mm">mm (amount)</option><option value="1" data-i18n="opt_rain_pct">% (chance)</option><option value="2" data-i18n="opt_rain_both">% + mm (both)</option></select></div>
     <div><label data-i18n="l_wx_refresh">Refresh weather (s)</label><input id="wxRefresh" type="number" min="60" max="21600"></div>
    </div>
    <label data-i18n="l_layout_preset">Layout preset</label>
@@ -233,6 +233,11 @@ small.hint{display:block;color:var(--mut);margin-top:4px;font-size:12px}
     <div><label class="muted" data-i18n="l_temp_colour">Temperature colour</label><select id="wxTempColor" class="wxc"></select></div>
     <div><label class="muted" data-i18n="l_icon_colour">Icon colour</label><select id="wxBigIconColor" class="wxc"></select></div>
    </div>
+   <div class="row">
+    <div><label class="muted" data-i18n="l_icon_color_mode">Icon colouring</label>
+     <select id="wxIconColorMode"><option value="0" data-i18n="opt_icon_semantic">Semantic (by weather)</option><option value="1" data-i18n="opt_icon_fixed">Fixed (icon colour above)</option></select></div>
+   </div>
+   <small class="hint" data-i18n="hint_icon_color">Semantic tints each icon by the weather: sun yellow, clouds/fog grey, rain blue-grey, snow &amp; clear-night white. Fixed uses the single icon colour for every icon.</small>
   </div>
 
   <div class="card"><h2 data-i18n="h_wx_b">B &middot; Condition text</h2>
@@ -446,6 +451,7 @@ var I18N={
  l_rain_detail:{en:'Rain in detail line',de:'Regen in Detailzeile'},
  opt_rain_mm:{en:'mm (amount)',de:'mm (Menge)'},
  opt_rain_pct:{en:'% (chance)',de:'% (Wahrscheinlichkeit)'},
+ opt_rain_both:{en:'% + mm (both)',de:'% + mm (beide)'},
  l_wx_refresh:{en:'Refresh weather (s)',de:'Wetter aktualisieren (s)'},
  l_layout_preset:{en:'Layout preset',de:'Layout-Vorlage'},
  opt_preset_pick:{en:'— pick a starting point —',de:'— Startpunkt wählen —'},
@@ -461,6 +467,10 @@ var I18N={
  l_temp_size:{en:'Temperature size',de:'Temperaturgröße'},
  l_temp_colour:{en:'Temperature colour',de:'Temperaturfarbe'},
  l_icon_colour:{en:'Icon colour',de:'Symbolfarbe'},
+ l_icon_color_mode:{en:'Icon colouring',de:'Symbol-Farbgebung'},
+ opt_icon_semantic:{en:'Semantic (by weather)',de:'Semantisch (nach Wetter)'},
+ opt_icon_fixed:{en:'Fixed (icon colour above)',de:'Fest (Symbolfarbe oben)'},
+ hint_icon_color:{en:'Semantic tints each icon by the weather: sun yellow, clouds/fog grey, rain blue-grey, snow & clear-night white. Fixed uses the single icon colour for every icon.',de:'Semantisch färbt jedes Symbol nach dem Wetter: Sonne gelb, Wolken/Nebel grau, Regen blaugrau, Schnee & klare Nacht weiß. Fest nutzt für alle Symbole die eine Symbolfarbe.'},
  h_wx_b:{en:'B &middot; Condition text',de:'B &middot; Wetter-Text'},
  chk_cond:{en:'Condition text (Klar, Bewölkt, Regen, ...)',de:'Wetter-Text (Klar, Bewölkt, Regen, ...)'},
  l_size:{en:'Size',de:'Größe'},
@@ -706,7 +716,10 @@ function loadConfig(){return j('/api/config').then(function(c){C=c;
  var wx=c.weather||{};
  sv('wxLat',wx.lat!=null?wx.lat:53.55); sv('wxLon',wx.lon!=null?wx.lon:9.99);
  sv('wxUnit',wx.unitF?1:0); sv('wxWindUnit',wx.windUnit!=null?wx.windUnit:0);
- sv('wxPrecipPct',wx.precipPct?1:0); sv('wxRefresh',wx.refreshSec!=null?wx.refreshSec:600);
+ // precip mode: prefer the new 3-way field; migrate the old precipPct boolean.
+ sv('wxPrecipMode',wx.precipMode!=null?wx.precipMode:(wx.precipPct?1:0));
+ sv('wxIconColorMode',wx.iconColorMode!=null?wx.iconColorMode:0);
+ sv('wxRefresh',wx.refreshSec!=null?wx.refreshSec:600);
  sc('wxShowTemp',wx.showTemp!==false); sc('wxShowBigIcon',wx.showBigIcon!==false); sc('wxShowCond',wx.showCond!==false);
  sc('wxShowFeels',!!wx.showFeels); sc('wxShowHum',!!wx.showHum); sc('wxShowWind',!!wx.showWind); sc('wxShowPrecip',!!wx.showPrecip);
  sc('wxShowHourly',wx.showHourly!==false); sc('wxShowDaily',!!wx.showDaily); sc('wxShowTrend',!!wx.showTrend);
@@ -756,7 +769,8 @@ function collect(){
   dateSize:parseInt(gv('clkDateSize'))||0};
  // weather slice
  if($('wxLat')) o.weather={lat:parseFloat(gv('wxLat')),lon:parseFloat(gv('wxLon')),
-  unitF:gv('wxUnit')==='1',windUnit:parseInt(gv('wxWindUnit'))||0,precipPct:gv('wxPrecipPct')==='1',
+  unitF:gv('wxUnit')==='1',windUnit:parseInt(gv('wxWindUnit'))||0,
+  precipMode:parseInt(gv('wxPrecipMode'))||0,iconColorMode:parseInt(gv('wxIconColorMode'))||0,
   refreshSec:parseInt(gv('wxRefresh'))||600,
   showTemp:gc('wxShowTemp'),showBigIcon:gc('wxShowBigIcon'),showCond:gc('wxShowCond'),
   showFeels:gc('wxShowFeels'),showHum:gc('wxShowHum'),showWind:gc('wxShowWind'),showPrecip:gc('wxShowPrecip'),

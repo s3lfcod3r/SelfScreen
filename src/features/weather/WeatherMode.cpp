@@ -25,6 +25,8 @@ static const int WX_ICON_MINI  = 16;   // 2x icon box (px)
 static const int WX_ICON_GAP   = 8;    // gap between the big icon and the temperature
 static const int WX_TREND_H    = 40;   // sparkline band height (px)
 static const int WX_TREND_MARGIN = 20; // left/right inset of the sparkline
+static const int WX_DETAIL_MARGIN  = 6; // side inset used by the detail-line wrap
+static const int WX_DETAIL_LINEGAP = 2; // gap between the two detail lines
 
 // German short weekday names, index 0=Sun .. 6=Sat (ASCII, matches the fonts).
 static const char* kWeekdayShortDE[7] = { "So", "Mo", "Di", "Mi", "Do", "Fr", "Sa" };
@@ -43,6 +45,36 @@ static uint16_t wxColor(uint8_t i) {
     case CLK_COL_SELFBLUE_DK: return C_SELFBLUE_DK;
     default:                  return C_WHITE;
   }
+}
+
+// Semantic weather-icon colour: pick the tint from the WMO weather_code (+ is_day)
+// so each single-colour open_iconic glyph still reads correctly — sun→yellow,
+// moon/clear-night & snow→white, cloud/fog→grey, rain/drizzle/thunder→a muted
+// blue-grey (C_SELFBLUE_DK). Used for both the big icon and the strip mini icons.
+static uint16_t wxIconColor(int code, bool isDay) {
+  if (code < 0) return C_GRAY;
+  switch (code) {
+    case 0: case 1: case 2:                 // clear / mainly / partly cloudy
+      return isDay ? C_YELLOW : C_WHITE;
+    case 3: case 45: case 48:               // overcast / fog
+      return C_GRAY;
+    case 71: case 73: case 75: case 77:     // snow
+    case 85: case 86:
+      return C_WHITE;
+    case 51: case 53: case 55: case 56: case 57:   // drizzle
+    case 61: case 63: case 65: case 66: case 67:   // rain
+    case 80: case 81: case 82:                     // showers
+    case 95: case 96: case 99:                     // thunderstorm
+      return C_SELFBLUE_DK;
+    default:
+      return C_GRAY;
+  }
+}
+
+// Resolve the icon colour for one weather code under the current icon-colour mode.
+static uint16_t wxResolveIconColor(const WeatherSettings& w, int code, bool isDay) {
+  return w.iconColorMode == WX_ICONCOL_SEMANTIC ? wxIconColor(code, isDay)
+                                                : wxColor(w.bigIconColor);
 }
 
 // Ink height of `s` in the currently-set U8g2 font.
@@ -87,6 +119,34 @@ void drawWeatherIcon(Arduino_GFX* gfx, char glyph, int cx, int topY, int boxH,
                    : u8g2_font_open_iconic_weather_2x_t);
   char s[2] = { glyph, 0 };
   drawCenteredAt(gfx, s, cx, topY, boxH, color);
+}
+
+// ---- C: pack the detail tokens into up to two centred lines ---------------
+// Greedily fills line 1, then line 2, so each line's ink width fits `maxW` in
+// the given proportional font. Returns the line count (0/1/2); any tokens that
+// still don't fit are appended to line 2 (the fit loop then shrinks the font).
+static int wxWrapDetail(Arduino_GFX* gfx, const uint8_t* font,
+                        const char tok[][24], int nTok, int maxW,
+                        char* l1, size_t l1n, char* l2, size_t l2n) {
+  l1[0] = 0; l2[0] = 0;
+  if (nTok <= 0) return 0;
+  gfx->setFont(font);
+  int line = 0;
+  for (int i = 0; i < nTok; i++) {
+    char* cur = line == 0 ? l1 : l2;
+    size_t curn = line == 0 ? l1n : l2n;
+    if (!cur[0]) { strlcpy(cur, tok[i], curn); continue; }
+    char cand[80];
+    snprintf(cand, sizeof(cand), "%s  %s", cur, tok[i]);
+    if (fontWidth(gfx, cand) <= maxW) {
+      strlcpy(cur, cand, curn);
+    } else if (line == 0) {
+      line = 1; strlcpy(l2, tok[i], l2n);
+    } else {
+      char c2[80]; snprintf(c2, sizeof(c2), "%s  %s", l2, tok[i]); strlcpy(l2, c2, l2n);
+    }
+  }
+  return l2[0] ? 2 : 1;
 }
 
 // ---- A: now-primary (big temp + optional big icon) ------------------------
@@ -140,7 +200,8 @@ struct StripRow { bool on; int h; };
 static void drawStrip(Arduino_GFX* gfx, int cols, int bandY,
                       const uint8_t* font, uint16_t textCol, uint16_t popCol,
                       // per-column content callbacks are inlined by the caller
-                      const char** topStr, const char* iconGlyphs, const char** midStr,
+                      const char** topStr, const char* iconGlyphs, const uint16_t* iconCols,
+                      const char** midStr,
                       const char** botStr, StripRow top, StripRow icon, StripRow mid,
                       StripRow bot) {
   int colW = TFT_WIDTH / cols;
@@ -148,7 +209,7 @@ static void drawStrip(Arduino_GFX* gfx, int cols, int bandY,
     int cx = colW * c + colW / 2;
     int y = bandY;
     if (top.on) { gfx->setFont(font); drawCenteredAt(gfx, topStr[c], cx, y, top.h, textCol); y += top.h + WX_ROWGAP; }
-    if (icon.on) { drawWeatherIcon(gfx, iconGlyphs[c], cx, y, icon.h, false, textCol); y += icon.h + WX_ROWGAP; }
+    if (icon.on) { drawWeatherIcon(gfx, iconGlyphs[c], cx, y, icon.h, false, iconCols[c]); y += icon.h + WX_ROWGAP; }
     if (mid.on) { gfx->setFont(font); drawCenteredAt(gfx, midStr[c], cx, y, mid.h, textCol); y += mid.h + WX_ROWGAP; }
     if (bot.on) { gfx->setFont(font); drawCenteredAt(gfx, botStr[c], cx, y, bot.h, popCol); }
   }
@@ -222,11 +283,6 @@ void WeatherMode::render(const Settings& s, const WeatherData& d) {
   uint8_t dSz = w.detailSize < CLK_PROP_FONT_COUNT ? w.detailSize : DEFAULT_WX_DETAILSIZE;
   uint8_t hSz = w.hourlySize < CLK_PROP_FONT_COUNT ? w.hourlySize : DEFAULT_WX_HOURLYSIZE;
   uint8_t ySz = w.dailySize  < CLK_PROP_FONT_COUNT ? w.dailySize  : DEFAULT_WX_DAILYSIZE;
-  const uint8_t* tempFont   = CLK_NUM_FONTS[tSz];
-  const uint8_t* condFont   = CLK_PROP_FONTS[cSz];
-  const uint8_t* detailFont = CLK_PROP_FONTS[dSz];
-  const uint8_t* hourlyFont = CLK_PROP_FONTS[hSz];
-  const uint8_t* dailyFont  = CLK_PROP_FONTS[ySz];
 
   // ---- build primary / condition / detail strings ----
   char tempStr[12];
@@ -234,159 +290,203 @@ void WeatherMode::render(const Settings& s, const WeatherData& d) {
   else         strlcpy(tempStr, "--", sizeof(tempStr));
   const char* condStr = d.valid ? weatherCodeDE(d.code) : "";
 
-  // Detail line: join the enabled items with two spaces. The proportional fonts
-  // are ASCII-only (no '°'), so temperatures here are printed as plain numbers.
-  char detailStr[64]; detailStr[0] = 0;
+  // Detail values as short independent tokens; they are packed into <=2 centred
+  // lines below (see wxWrapDetail) so an all-on detail block never runs off the
+  // 240 px width. The proportional fonts are ASCII-only (no '°') -> plain numbers.
+  char detailTok[4][24]; int nTok = 0;
   if (d.valid) {
-    char part[24];
-    #define WX_APPEND(fmt, ...) do { \
-      snprintf(part, sizeof(part), fmt, __VA_ARGS__); \
-      if (detailStr[0]) strlcat(detailStr, "  ", sizeof(detailStr)); \
-      strlcat(detailStr, part, sizeof(detailStr)); \
-    } while (0)
-    if (w.showFeels) WX_APPEND("Gefuehlt %d", (int)lroundf(d.feelsLike));
-    if (w.showHum)   WX_APPEND("Luft %d%%", d.humidity);
-    if (w.showWind)  WX_APPEND("Wind %d", (int)lroundf(d.wind));
+    if (w.showFeels) snprintf(detailTok[nTok++], 24, "Gefuehlt %d", (int)lroundf(d.feelsLike));
+    if (w.showHum)   snprintf(detailTok[nTok++], 24, "Luft %d%%", d.humidity);
+    if (w.showWind)  snprintf(detailTok[nTok++], 24, "Wind %d", (int)lroundf(d.wind));
     if (w.showPrecip) {
-      if (w.precipPct) WX_APPEND("Regen %d%%", d.nHours ? d.hours[0].pop : 0);
-      else             WX_APPEND("Regen %.1f mm", d.precip);
+      int pop = d.nHours ? d.hours[0].pop : 0;
+      if      (w.precipMode == WX_PRECIP_PCT)  snprintf(detailTok[nTok++], 24, "Regen %d%%", pop);
+      else if (w.precipMode == WX_PRECIP_BOTH) snprintf(detailTok[nTok++], 24, "Regen %d%% %.1fmm", pop, d.precip);
+      else                                     snprintf(detailTok[nTok++], 24, "Regen %.1f mm", d.precip);
     }
-    #undef WX_APPEND
   }
 
-  // ---- which blocks are present this frame ----
-  bool hasPrimary = w.showTemp || w.showBigIcon;
+  // ---- fixed (font-size-independent) facts about which blocks are present ----
+  const int detailMax = TFT_WIDTH - 2 * WX_DETAIL_MARGIN;
+  bool showTempP  = w.showTemp;
+  bool showIconP  = w.showBigIcon && d.valid;
+  bool hasPrimary = (w.showTemp || w.showBigIcon);
   bool hasCond    = w.showCond && condStr[0];
-  bool hasDetail  = detailStr[0];
   bool hasHourly  = w.showHourly && d.nHours > 0;
   bool hasDaily   = w.showDaily  && d.nDays  > 0;
   bool hasTrend   = w.showTrend  && d.nHours >= 2;
 
-  // ---- measure block heights ----
-  int hPrimary = 0, hCond = 0, hDetail = 0, hHourly = 0, hDaily = 0;
-  int hTrend = hasTrend ? WX_TREND_H : 0;
-
-  if (hasPrimary) {
-    int th = 0;
-    if (w.showTemp) { gfx->setFont(tempFont); th = fontHeight(gfx, "-8"); }
-    int ih = (w.showBigIcon && d.valid) ? WX_ICON_BIG : 0;
-    hPrimary = th > ih ? th : ih;
-    if (hPrimary == 0) hasPrimary = false;   // temp off + no data yet -> nothing to show
-  }
-  if (hasCond)   { gfx->setFont(condFont);   hCond   = fontHeight(gfx, "Mg"); }
-  if (hasDetail) { gfx->setFont(detailFont); hDetail = fontHeight(gfx, "0g%"); }
-
-  // Hourly / daily strip sub-row heights.
-  int hrRow = 0, hrH = 0, hrI = 0, hrT = 0, hrP = 0;
+  int hourlyStep = w.hourlyStep < WX_HOURLY_STEP_MIN ? WX_HOURLY_STEP_MIN : w.hourlyStep;
   int hourlyCols = 0;
   if (hasHourly) {
-    gfx->setFont(hourlyFont); hrRow = fontHeight(gfx, "88h");
-    hrH = w.hrHour ? hrRow : 0;
-    hrI = w.hrIcon ? WX_ICON_MINI : 0;
-    hrT = w.hrTemp ? hrRow : 0;
-    hrP = w.hrPop  ? hrRow : 0;
-    int step = w.hourlyStep < WX_HOURLY_STEP_MIN ? WX_HOURLY_STEP_MIN : w.hourlyStep;
     int want = w.hourlyCount < WX_HOURLY_COUNT_MIN ? WX_HOURLY_COUNT_MIN : w.hourlyCount;
-    for (int c = 0; c < want && (int)(c * step) < d.nHours; c++) hourlyCols++;
-    if (hourlyCols < 1) { hasHourly = false; }
-    else {
-      int rows = (hrH?1:0) + (hrI?1:0) + (hrT?1:0) + (hrP?1:0);
-      hHourly = hrH + hrI + hrT + hrP + (rows > 1 ? (rows - 1) * WX_ROWGAP : 0);
-      if (hHourly == 0) hasHourly = false;
-    }
+    for (int c = 0; c < want && (int)(c * hourlyStep) < d.nHours; c++) hourlyCols++;
+    if (hourlyCols < 1) hasHourly = false;
   }
-  int dyRow = 0, dyH = 0, dyI = 0, dyT = 0, dyP = 0;
   int dailyCols = 0;
   if (hasDaily) {
-    gfx->setFont(dailyFont); dyRow = fontHeight(gfx, "88/8");
-    dyH = w.dyDay   ? dyRow : 0;
-    dyI = w.dyIcon  ? WX_ICON_MINI : 0;
-    dyT = w.dyTemps ? dyRow : 0;
-    dyP = w.dyPop   ? dyRow : 0;
     int want = w.dailyCount < WX_DAILY_COUNT_MIN ? WX_DAILY_COUNT_MIN : w.dailyCount;
     dailyCols = want < d.nDays ? want : d.nDays;
-    if (dailyCols < 1) { hasDaily = false; }
-    else {
-      int rows = (dyH?1:0) + (dyI?1:0) + (dyT?1:0) + (dyP?1:0);
-      hDaily = dyH + dyI + dyT + dyP + (rows > 1 ? (rows - 1) * WX_ROWGAP : 0);
-      if (hDaily == 0) hasDaily = false;
-    }
+    if (dailyCols < 1) hasDaily = false;
   }
 
-  // ---- centre the stack; tighten the gap if an extreme combo overflows ----
-  bool present[6] = { hasPrimary, hasCond, hasDetail, hasHourly, hasDaily, hasTrend };
-  int  heights[6] = { hPrimary, hCond, hDetail, hHourly, hDaily, hTrend };
-  int gap = WX_GAP, top = 0;
-  for (;;) {
+  // ---- measure everything for a candidate set of size indices ----
+  // Called repeatedly by the fit loop: shrinking the size indices re-measures
+  // until the stack fits 240 px, so nothing is ever clipped (see below).
+  bool present[6];
+  int  heights[6];
+  int  hrH = 0, hrI = 0, hrT = 0, hrP = 0;
+  int  dyH = 0, dyI = 0, dyT = 0, dyP = 0;
+  char dl1[64], dl2[64]; int detailLines = 0;
+
+  auto measureAll = [&](uint8_t tSz, uint8_t cSz, uint8_t dSz, uint8_t hSz, uint8_t ySz) {
+    for (int i = 0; i < 6; i++) { present[i] = false; heights[i] = 0; }
+    // A primary
+    if (hasPrimary) {
+      int th = 0;
+      if (showTempP) { gfx->setFont(CLK_NUM_FONTS[tSz]); th = fontHeight(gfx, "-8"); }
+      int ih = showIconP ? WX_ICON_BIG : 0;
+      int hP = th > ih ? th : ih;
+      if (hP > 0) { present[0] = true; heights[0] = hP; }
+    }
+    // B condition
+    if (hasCond) { gfx->setFont(CLK_PROP_FONTS[cSz]); present[1] = true; heights[1] = fontHeight(gfx, "Mg"); }
+    // C detail (packed into <=2 lines that each fit the width in this font)
+    detailLines = wxWrapDetail(gfx, CLK_PROP_FONTS[dSz], detailTok, nTok, detailMax,
+                               dl1, sizeof(dl1), dl2, sizeof(dl2));
+    if (detailLines > 0) {
+      gfx->setFont(CLK_PROP_FONTS[dSz]);
+      int lineH = fontHeight(gfx, "0g%");
+      present[2] = true;
+      heights[2] = detailLines * lineH + (detailLines - 1) * WX_DETAIL_LINEGAP;
+    }
+    // D hourly
+    if (hasHourly) {
+      gfx->setFont(CLK_PROP_FONTS[hSz]); int hrRow = fontHeight(gfx, "88h");
+      hrH = w.hrHour ? hrRow : 0; hrI = w.hrIcon ? WX_ICON_MINI : 0;
+      hrT = w.hrTemp ? hrRow : 0; hrP = w.hrPop  ? hrRow : 0;
+      int rows = (hrH?1:0) + (hrI?1:0) + (hrT?1:0) + (hrP?1:0);
+      int hh = hrH + hrI + hrT + hrP + (rows > 1 ? (rows - 1) * WX_ROWGAP : 0);
+      if (hh > 0) { present[3] = true; heights[3] = hh; }
+    }
+    // E daily
+    if (hasDaily) {
+      gfx->setFont(CLK_PROP_FONTS[ySz]); int dyRow = fontHeight(gfx, "88/8");
+      dyH = w.dyDay ? dyRow : 0; dyI = w.dyIcon ? WX_ICON_MINI : 0;
+      dyT = w.dyTemps ? dyRow : 0; dyP = w.dyPop ? dyRow : 0;
+      int rows = (dyH?1:0) + (dyI?1:0) + (dyT?1:0) + (dyP?1:0);
+      int hh = dyH + dyI + dyT + dyP + (rows > 1 ? (rows - 1) * WX_ROWGAP : 0);
+      if (hh > 0) { present[4] = true; heights[4] = hh; }
+    }
+    // F trend
+    if (hasTrend) { present[5] = true; heights[5] = WX_TREND_H; }
+  };
+
+  auto stackH = [&](int gap) {
     int H = 0; bool first = true;
     for (int i = 0; i < 6; i++) if (present[i]) { if (!first) H += gap; H += heights[i]; first = false; }
-    top = (TFT_HEIGHT - H) / 2;
+    return H;
+  };
+
+  // Working size indices (start from the settings, clamped).
+  uint8_t sz[5] = { tSz, cSz, dSz, hSz, ySz };
+  measureAll(sz[0], sz[1], sz[2], sz[3], sz[4]);
+
+  // ---- fit to 240: shrink block font sizes (tallest blocks first) ----
+  // Instead of tightening gaps and clipping the lowest block, step the size
+  // indices down until the measured stack fits, so content stays on-screen and
+  // legible. Blocks 0..4 carry a font size (5=trend is fixed-height).
+  for (int guard = 0; guard < 64; guard++) {
+    if (stackH(WX_GAP) <= TFT_HEIGHT) break;
+    int bestBlk = -1, bestH = -1;
+    for (int b = 0; b < 5; b++)
+      if (present[b] && sz[b] > 0 && heights[b] > bestH) { bestH = heights[b]; bestBlk = b; }
+    if (bestBlk < 0) break;                 // nothing left to shrink -> gap-tighten below
+    sz[bestBlk]--;
+    measureAll(sz[0], sz[1], sz[2], sz[3], sz[4]);
+  }
+
+  // Last-resort gap tighten (only if an extreme combo still overflows at minimum
+  // sizes) so we never centre off the top edge.
+  int gap = WX_GAP, top;
+  for (;;) {
+    top = (TFT_HEIGHT - stackH(gap)) / 2;
     if (top >= 0 || gap <= 1) break;
     gap -= 1;
   }
   if (top < 0) top = 0;
+
+  const uint8_t* tempFontF   = CLK_NUM_FONTS[sz[0]];
+  const uint8_t* condFontF   = CLK_PROP_FONTS[sz[1]];
+  const uint8_t* detailFontF = CLK_PROP_FONTS[sz[2]];
+  const uint8_t* hourlyFontF = CLK_PROP_FONTS[sz[3]];
+  const uint8_t* dailyFontF  = CLK_PROP_FONTS[sz[4]];
 
   // ---- draw ----
   gfx->fillScreen(C_BLACK);
   int y = top;
   bool prev = false;
 
-  if (hasPrimary) {
+  if (present[0]) {
     char glyph = wmoIcon(d.code, d.isDay);
+    uint16_t iconCol = wxResolveIconColor(w, d.code, d.isDay);
     if (d.valid && w.showTemp) {
-      drawPrimary(gfx, tempStr, w.showBigIcon, glyph, y, hPrimary,
-                  tempFont, wxColor(w.tempColor), wxColor(w.bigIconColor));
+      drawPrimary(gfx, tempStr, w.showBigIcon, glyph, y, heights[0],
+                  tempFontF, wxColor(w.tempColor), iconCol);
     } else if (d.valid && w.showBigIcon) {
-      drawWeatherIcon(gfx, glyph, TFT_WIDTH / 2, y, hPrimary, true, wxColor(w.bigIconColor));
+      drawWeatherIcon(gfx, glyph, TFT_WIDTH / 2, y, heights[0], true, iconCol);
     } else if (w.showTemp) {
-      gfx->setFont(tempFont);
-      drawFontCentered(gfx, tempStr, y, hPrimary, wxColor(w.tempColor));
+      gfx->setFont(tempFontF);
+      drawFontCentered(gfx, tempStr, y, heights[0], wxColor(w.tempColor));
     }
-    y += hPrimary; prev = true;
+    y += heights[0]; prev = true;
   }
-  if (hasCond) {
+  if (present[1]) {
     if (prev) y += gap;
-    gfx->setFont(condFont);
-    drawFontCentered(gfx, condStr, y, hCond, wxColor(w.condColor));
-    y += hCond; prev = true;
+    gfx->setFont(condFontF);
+    drawFontCentered(gfx, condStr, y, heights[1], wxColor(w.condColor));
+    y += heights[1]; prev = true;
   }
-  if (hasDetail) {
+  if (present[2]) {
     if (prev) y += gap;
-    gfx->setFont(detailFont);
-    drawFontCentered(gfx, detailStr, y, hDetail, wxColor(w.detailColor));
-    y += hDetail; prev = true;
+    gfx->setFont(detailFontF);
+    int lineH = fontHeight(gfx, "0g%");
+    int yy = y;
+    drawFontCentered(gfx, dl1, yy, lineH, wxColor(w.detailColor));
+    if (detailLines > 1) { yy += lineH + WX_DETAIL_LINEGAP; drawFontCentered(gfx, dl2, yy, lineH, wxColor(w.detailColor)); }
+    y += heights[2]; prev = true;
   }
-  if (hasHourly) {
+  if (present[3]) {
     if (prev) y += gap;
-    int step = w.hourlyStep < WX_HOURLY_STEP_MIN ? WX_HOURLY_STEP_MIN : w.hourlyStep;
     const char* topS[WX_HOURLY_COUNT_MAX];
     const char* midS[WX_HOURLY_COUNT_MAX];
     const char* botS[WX_HOURLY_COUNT_MAX];
     char iconG[WX_HOURLY_COUNT_MAX];
+    uint16_t iconC[WX_HOURLY_COUNT_MAX];
     static char buf[WX_HOURLY_COUNT_MAX][3][8];   // hour / temp / pop text
     for (int c = 0; c < hourlyCols; c++) {
-      const WxHour& hh = d.hours[c * step];
+      const WxHour& hh = d.hours[c * hourlyStep];
       snprintf(buf[c][0], 8, "%dh", hh.hour);
       snprintf(buf[c][1], 8, "%d", (int)lroundf(hh.temp));
       snprintf(buf[c][2], 8, "%d%%", hh.pop);
       topS[c] = buf[c][0]; midS[c] = buf[c][1]; botS[c] = buf[c][2];
       iconG[c] = wmoIcon(hh.code, true);
+      iconC[c] = wxResolveIconColor(w, hh.code, true);
     }
-    drawStrip(gfx, hourlyCols, y, hourlyFont, wxColor(w.hourlyColor), wxColor(w.hourlyPop),
-              topS, iconG, midS, botS,
+    drawStrip(gfx, hourlyCols, y, hourlyFontF, wxColor(w.hourlyColor), wxColor(w.hourlyPop),
+              topS, iconG, iconC, midS, botS,
               { (bool)w.hrHour, hrH }, { (bool)w.hrIcon, hrI },
               { (bool)w.hrTemp, hrT }, { (bool)w.hrPop, hrP });
-    y += hHourly; prev = true;
+    y += heights[3]; prev = true;
   }
-  if (hasDaily) {
-    if (prev) y += gap;
-    int want = w.dailyCount < WX_DAILY_COUNT_MIN ? WX_DAILY_COUNT_MIN : w.dailyCount;
-    (void)want;
+  if (present[4]) {
     const char* topS[WX_DAILY_COUNT_MAX];
     const char* midS[WX_DAILY_COUNT_MAX];
     const char* botS[WX_DAILY_COUNT_MAX];
     char iconG[WX_DAILY_COUNT_MAX];
+    uint16_t iconC[WX_DAILY_COUNT_MAX];
     static char dbuf[WX_DAILY_COUNT_MAX][3][10];  // day / temps / pop text
+    if (prev) y += gap;
     for (int c = 0; c < dailyCols; c++) {
       const WxDay& dd = d.days[c];
       strlcpy(dbuf[c][0], kWeekdayShortDE[dd.wday < 7 ? dd.wday : 0], 10);
@@ -394,22 +494,23 @@ void WeatherMode::render(const Settings& s, const WeatherData& d) {
       snprintf(dbuf[c][2], 10, "%d%%", dd.popMax);
       topS[c] = dbuf[c][0]; midS[c] = dbuf[c][1]; botS[c] = dbuf[c][2];
       iconG[c] = wmoIcon(dd.code, true);
+      iconC[c] = wxResolveIconColor(w, dd.code, true);
     }
-    drawStrip(gfx, dailyCols, y, dailyFont, wxColor(w.dailyColor), wxColor(w.dailyPop),
-              topS, iconG, midS, botS,
+    drawStrip(gfx, dailyCols, y, dailyFontF, wxColor(w.dailyColor), wxColor(w.dailyPop),
+              topS, iconG, iconC, midS, botS,
               { (bool)w.dyDay, dyH }, { (bool)w.dyIcon, dyI },
               { (bool)w.dyTemps, dyT }, { (bool)w.dyPop, dyP });
-    y += hDaily; prev = true;
+    y += heights[4]; prev = true;
   }
-  if (hasTrend) {
+  if (present[5]) {
     if (prev) y += gap;
-    drawTrend(gfx, d, WX_TREND_MARGIN, y, TFT_WIDTH - 2 * WX_TREND_MARGIN, hTrend,
+    drawTrend(gfx, d, WX_TREND_MARGIN, y, TFT_WIDTH - 2 * WX_TREND_MARGIN, WX_TREND_H,
               wxColor(w.trendColor), w.trendLabels, CLK_PROP_FONTS[0]);
-    y += hTrend;
+    y += WX_TREND_H;
   }
 
   // Nothing enabled (or no data yet with everything off) -> a neutral hint.
-  if (!hasPrimary && !hasCond && !hasDetail && !hasHourly && !hasDaily && !hasTrend)
+  if (!present[0] && !present[1] && !present[2] && !present[3] && !present[4] && !present[5])
     gfxDrawCentered(d.valid ? "no blocks" : "--", 116, 2, C_GRAY);
 
   // Restore the built-in font + plain ASCII printing for shared status screens.
