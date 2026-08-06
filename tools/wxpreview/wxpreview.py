@@ -539,6 +539,130 @@ def render_page_days(w, d):
     return img
 
 # ---------------------------------------------------------------------------
+# NEW: bigger + configurable RAIN_TREND / DAYS7 pages (mirror the firmware)
+# ---------------------------------------------------------------------------
+WX_RAIN_BARS = 0
+WX_RAIN_LIST = 1
+
+def _fit_prop_font(draw, availH, max_idx):
+    """Largest CLK_PROP_FONTS index <= max_idx whose 'Mg' ink height fits availH."""
+    max_idx = min(max_idx, len(PROP_FONT_NAMES) - 1)
+    for i in range(max_idx, 0, -1):
+        if prop_ink_desc(i) <= availH:
+            return i
+    return 0
+
+def draw_left_at(draw, s, x, bandY, bandH, font, color):
+    b = draw.textbbox((0, 0), s, font=font); h = b[3]-b[1]
+    py = bandY + (bandH - h)/2 - b[1]
+    draw.text((x - b[0], py), s, font=font, fill=color)
+
+def draw_right_at(draw, s, xRight, bandY, bandH, font, color):
+    b = draw.textbbox((0, 0), s, font=font); wpx = b[2]-b[0]; h = b[3]-b[1]
+    py = bandY + (bandH - h)/2 - b[1]
+    draw.text((xRight - wpx - b[0], py), s, font=font, fill=color)
+
+def render_page_rain_v(w, d, hours, style, label_size):
+    """Configurable rain page: `hours` wide bars, or a big two-column list."""
+    img = Image.new("RGB", (W, H), C_BLACK); draw = ImageDraw.Draw(img)
+    barCol  = wxColor(w["hourlyPop"]); textCol = wxColor(w["hourlyColor"])
+    titleBot = draw_page_title(draw, "Regen %", wxColor(w["condColor"]))
+    hs = d["hours"]
+    n = min(max(6, min(hours, 12)), len(hs))
+    label_size = min(label_size, len(PROP_FONT_NAMES) - 1)
+
+    if style == WX_RAIN_LIST:
+        top = titleBot + 4; availH = H - top - 4; rowH = availH // n
+        fi = _fit_prop_font(draw, rowH - 3, label_size)
+        font = ttf_for_cap(prop_ascent(fi))
+        LX = 22; RX = W - 22
+        for i in range(n):
+            ry = top + rowH*i
+            draw_left_at(draw, "%d Uhr" % hs[i][0], LX, ry, rowH, font, textCol)
+            draw_right_at(draw, "%d%%" % hs[i][2], RX, ry, rowH, font, barCol)
+        return img
+
+    # bars
+    X0 = 16; X1 = W-8; Y0 = titleBot+22; Y1 = H-WX_PG_MARGIN_B; PH = Y1-Y0
+    slot = (X1-X0)//n; barW = max(3, slot*3//4)
+    draw.line([X0, Y1, X1, Y1], fill=C_GRAY, width=1)
+    lblFont = ttf_for_cap(prop_ascent(label_size))
+    lblH = prop_ink_cap(label_size)
+    two_w = text_size(draw, "88", lblFont)[0]
+    stride = 2 if two_w > slot-2 else 1
+    f8 = ttf_for_cap(prop_ascent(0))
+    for i in range(n):
+        cx = X0 + slot*i + slot//2; pop = hs[i][2]; bh = PH*pop//100; by = Y1-bh
+        draw.rectangle([cx-barW//2, by, cx-barW//2+barW, Y1], fill=barCol)
+        label = (stride == 1) or (i % 2 == 0)
+        if label and pop > 0:
+            draw_centered_at(draw, "%d" % pop, cx, by-lblH-3, lblH, lblFont, barCol)
+        if label:
+            draw_centered_at(draw, "%d" % hs[i][0], cx, Y1+4, 16, f8, C_GRAY)
+    return img
+
+def render_page_days_v(w, d, count, row_size):
+    """Configurable 7-day page: `count` rows, auto-fitted font (<= row_size)."""
+    img = Image.new("RGB", (W, H), C_BLACK); draw = ImageDraw.Draw(img)
+    dayCol = wxColor(w["dailyColor"]); popCol = wxColor(w["dailyPop"])
+    titleBot = draw_page_title(draw, "7 Tage", wxColor(w["condColor"]))
+    days = d["days"]
+    rows = min(max(3, min(count, 7)), len(days))
+    top = titleBot+4; rowH = (H-top)//rows
+    big_icon = rowH >= 42
+    iconW = 30 if big_icon else 16
+    COLGAP = 8
+    fi_max = min(row_size, len(PROP_FONT_NAMES)-1)
+
+    def widths(fi):
+        font = ttf_for_cap(prop_ascent(fi))
+        mday = mtemp = mpop = 0
+        for r in range(rows):
+            wday, tmax, tmin, popMax, code = days[r]
+            mday = max(mday, text_size(draw, WD_DE[wday], font)[0])
+            mtemp = max(mtemp, text_size(draw, "%d/%d" % (round(tmax), round(tmin)), font)[0])
+            mpop = max(mpop, text_size(draw, "%d%%" % popMax, font)[0])
+        return font, mday, mtemp, mpop
+
+    fi = fi_max
+    while True:
+        font, mday, mtemp, mpop = widths(fi)
+        fh = prop_ink_desc(fi)
+        totalW = mday + COLGAP + iconW + COLGAP + mtemp + COLGAP + mpop
+        if (fh <= rowH-2 and totalW <= W-12) or fi == 0:
+            break
+        fi -= 1
+
+    leftX = 6; rightX = W-6
+    dayCx = leftX + mday//2
+    popCx = rightX - mpop//2
+    iconCx = dayCx + mday//2 + COLGAP + iconW//2
+    tempCx = ((iconCx + iconW//2) + (popCx - mpop//2)) // 2
+    icon_box = 32 if big_icon else 16
+
+    for r in range(rows):
+        wday, tmax, tmin, popMax, code = days[r]; ry = top + rowH*r
+        draw_centered_at(draw, WD_DE[wday], dayCx, ry, rowH, font, dayCol)
+        icol = icon_semantic_color(code, True) if w["iconColorMode"] == 0 else dayCol
+        draw_icon(draw, wmo_icon(code, True), iconCx, ry+(rowH-icon_box)//2, icon_box, icol)
+        draw_centered_at(draw, "%d/%d" % (round(tmax), round(tmin)), tempCx, ry, rowH, font, dayCol)
+        draw_centered_at(draw, "%d%%" % popMax, popCx, ry, rowH, font, popCol)
+    return img
+
+# Realistic rain/forecast sample (12 hourly pops 0-60%, 7 daily with codes).
+SAMPLE_PAGES = {
+    "valid": True, "isDay": True,
+    "temp": 18.0, "feelsLike": 17.0, "precip": 1.2, "wind": 14.0,
+    "humidity": 72, "code": 61,
+    "hours": [  # (hour, temp, pop, code)
+        (13,19,10,2),(14,19,20,3),(15,18,35,61),(16,18,55,63),(17,17,60,63),(18,17,45,61),
+        (19,16,30,80),(20,16,20,3),(21,15,15,2),(22,15,5,0),(23,14,0,0),(0,14,0,0)],
+    "days": [  # (wday, tmax, tmin, popMax, code)
+        (3,20,13,55,61),(4,22,14,30,2),(5,19,12,60,80),(6,23,15,10,0),
+        (0,21,13,40,3),(1,24,16,20,45),(2,22,15,50,95)],
+}
+
+# ---------------------------------------------------------------------------
 # Scenarios
 # ---------------------------------------------------------------------------
 def scenarios():
@@ -589,6 +713,24 @@ def main():
     for name, fn in page_render.items():
         p = os.path.join(OUT, name + ".png")
         fn(w, d).save(p)
+        print(" ", os.path.abspath(p))
+
+    # ---- deliverable: bigger + configurable Rain% / 7-day comparison variants ----
+    wv = base_settings()
+    dp = SAMPLE_PAGES
+    variants = [
+        ("var_rain_12bars", render_page_rain_v(wv, dp, 12, WX_RAIN_BARS, 2)),
+        ("var_rain_8bars",  render_page_rain_v(wv, dp, 8,  WX_RAIN_BARS, 2)),
+        ("var_rain_6bars",  render_page_rain_v(wv, dp, 6,  WX_RAIN_BARS, 3)),
+        ("var_rain_list8",  render_page_rain_v(wv, dp, 8,  WX_RAIN_LIST, 4)),
+        ("var_days_7",      render_page_days_v(wv, dp, 7, 3)),
+        ("var_days_5",      render_page_days_v(wv, dp, 5, 3)),
+        ("var_days_4",      render_page_days_v(wv, dp, 4, 4)),
+    ]
+    print("\nVariants (Rain% + 7-day, bigger/configurable):")
+    for name, img in variants:
+        p = os.path.join(OUT, name + ".png")
+        img.save(p)
         print(" ", os.path.abspath(p))
 
 if __name__ == "__main__":

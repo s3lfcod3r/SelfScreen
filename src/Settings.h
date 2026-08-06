@@ -103,6 +103,15 @@ struct WeatherSettings {
 
   bool     trendLabels;  // F: min/max labels on the sparkline
 
+  // --- RAIN_TREND full-screen page ---
+  uint8_t  rainHours;    // bars/list count (WX_RAIN_HOURS_MIN..MAX)
+  uint8_t  rainStyle;    // WX_RAIN_BARS / WX_RAIN_LIST
+  uint8_t  rainLabelSize;// CLK_PROP_FONTS index for the % labels / list rows
+
+  // --- DAYS7 full-screen page ---
+  uint8_t  daysCount;    // rows shown (WX_DAYS_COUNT_MIN..MAX)
+  uint8_t  daysRowSize;  // CLK_PROP_FONTS index (preferred/max; auto-shrinks to fit)
+
   // --- sizes (indices into the clock font tables) ---
   uint8_t  tempSize;     // CLK_NUM_FONTS[]  (0..CLK_NUM_FONT_MAX)
   uint8_t  condSize;     // CLK_PROP_FONTS[] (0..CLK_PROP_FONT_MAX)

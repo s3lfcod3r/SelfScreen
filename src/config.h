@@ -263,6 +263,26 @@
 
 #define DEFAULT_WX_TRENDLABELS  false    // F: min/max labels on the sparkline
 
+// ---- RAIN_TREND full-screen page (bigger + configurable) ----
+// Fewer, wider bars (or a big two-column list) so the % labels read across the
+// room. rainHours is clamped to the hourly buffer (WX_HOURLY_POINTS = 12).
+#define WX_RAIN_BARS 0                   // wide vertical bars with % labels
+#define WX_RAIN_LIST 1                   // "15 Uhr   40%" rows in a big font
+#define WX_RAIN_STYLE_MAX WX_RAIN_LIST
+#define WX_RAIN_HOURS_MIN 6              // web UI offers 6 / 8 / 12
+#define WX_RAIN_HOURS_MAX 12            // == WX_HOURLY_POINTS
+#define DEFAULT_WX_RAIN_HOURS 8          // 8 wide bars read comfortably
+#define DEFAULT_WX_RAIN_STYLE WX_RAIN_BARS
+#define DEFAULT_WX_RAINLABELSIZE 2       // CLK_PROP_FONTS index (helvB12; was helvB08)
+
+// ---- DAYS7 full-screen page (bigger + configurable) ----
+// Fewer rows -> bigger font. daysRowSize is the PREFERRED/max size; the renderer
+// auto-shrinks it so every row still fits the row height and the 240 px width.
+#define WX_DAYS_COUNT_MIN 3
+#define WX_DAYS_COUNT_MAX 7             // == WX_DAILY_POINTS
+#define DEFAULT_WX_DAYS_COUNT 5          // 5 days read well; up to 7 allowed
+#define DEFAULT_WX_DAYSROWSIZE 3         // CLK_PROP_FONTS index (helvB14; was helvB12)
+
 // Sizes are indices into the clock font tables (see u8g2_clock_fonts.h). The web
 // UI slider max is the matching CLK_*_FONT_MAX. Temperature uses the big number
 // fonts; everything else uses the proportional letter fonts.

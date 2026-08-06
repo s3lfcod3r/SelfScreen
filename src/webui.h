@@ -233,6 +233,30 @@ small.hint{display:block;color:var(--mut);margin-top:4px;font-size:12px}
    <div class="carrow"><input id="wxPageDays" type="checkbox"><span class="nm" data-i18n="page_days">7 days</span><input id="wxOrderDays" type="number" min="1" max="4"></div>
   </div>
 
+  <div class="card"><h2 data-i18n="h_wx_rainpage">Rain % page</h2>
+   <div class="row">
+    <div><label class="muted" data-i18n="l_rain_hours">Hours shown</label>
+     <select id="wxRainHours"><option value="6">6</option><option value="8">8</option><option value="12">12</option></select></div>
+    <div><label class="muted" data-i18n="l_rain_style">Style</label>
+     <select id="wxRainStyle"><option value="0" data-i18n="opt_rain_bars">Bars</option><option value="1" data-i18n="opt_rain_list">List</option></select></div>
+   </div>
+   <div class="row">
+    <div><label class="muted"><span data-i18n="l_label_size">Label size</span> <span id="wxRainLabelSizeV"></span></label>
+     <input id="wxRainLabelSize" type="range" min="0" max="5" oninput="wxRainLabelSizeV.textContent=(+this.value+1)+'/6'"></div>
+   </div>
+   <small class="hint" data-i18n="hint_rainpage">Fewer, wider bars make the % labels readable across the room. List shows big &ldquo;15 Uhr&nbsp;&nbsp;40%&rdquo; rows instead. Colours come from the hourly strip (text + rain%).</small>
+  </div>
+
+  <div class="card"><h2 data-i18n="h_wx_dayspage">7-day page</h2>
+   <div class="row">
+    <div><label class="muted"><span data-i18n="l_days_count">Days shown</span> <span id="wxDaysCountV"></span></label>
+     <input id="wxDaysCount" type="range" min="3" max="7" oninput="wxDaysCountV.textContent=this.value"></div>
+    <div><label class="muted"><span data-i18n="l_row_size">Row size (max)</span> <span id="wxDaysRowSizeV"></span></label>
+     <input id="wxDaysRowSize" type="range" min="0" max="5" oninput="wxDaysRowSizeV.textContent=(+this.value+1)+'/6'"></div>
+   </div>
+   <small class="hint" data-i18n="hint_dayspage">Fewer days give bigger rows. Row size is a maximum &mdash; the screen auto-shrinks the font so every row still fits. Colours come from the daily strip (weekday/temps + rain%).</small>
+  </div>
+
   <div class="card"><h2 data-i18n="h_wx_a">A &middot; Now (temperature + icon)</h2>
    <div class="chk"><input id="wxShowTemp" type="checkbox"><label data-i18n="chk_bigtemp">Big temperature (with drawn &deg; ring)</label></div>
    <div class="chk"><input id="wxShowBigIcon" type="checkbox"><label data-i18n="chk_bigicon">Big weather icon beside the temperature</label></div>
@@ -481,6 +505,17 @@ var I18N={
  page_temp:{en:'Temperature trend',de:'Temperaturverlauf'},
  page_rain:{en:'Rain %',de:'Regen %'},
  page_days:{en:'7 days',de:'7 Tage'},
+ h_wx_rainpage:{en:'Rain % page',de:'Regen-%-Seite'},
+ l_rain_hours:{en:'Hours shown',de:'Angezeigte Stunden'},
+ l_rain_style:{en:'Style',de:'Stil'},
+ opt_rain_bars:{en:'Bars',de:'Balken'},
+ opt_rain_list:{en:'List',de:'Liste'},
+ l_label_size:{en:'Label size',de:'Beschriftungsgröße'},
+ hint_rainpage:{en:'Fewer, wider bars make the % labels readable across the room. List shows big &ldquo;15 Uhr&nbsp;&nbsp;40%&rdquo; rows instead. Colours come from the hourly strip (text + rain%).',de:'Weniger, breitere Balken machen die %-Werte auch aus der Ferne lesbar. Liste zeigt stattdessen große Zeilen &bdquo;15 Uhr&nbsp;&nbsp;40%&ldquo;. Farben stammen aus der Stundenleiste (Text + Regen%).'},
+ h_wx_dayspage:{en:'7-day page',de:'7-Tage-Seite'},
+ l_days_count:{en:'Days shown',de:'Angezeigte Tage'},
+ l_row_size:{en:'Row size (max)',de:'Zeilengröße (max)'},
+ hint_dayspage:{en:'Fewer days give bigger rows. Row size is a maximum &mdash; the screen auto-shrinks the font so every row still fits. Colours come from the daily strip (weekday/temps + rain%).',de:'Weniger Tage ergeben größere Zeilen. Die Zeilengröße ist ein Maximum &mdash; der Screen verkleinert die Schrift automatisch, damit jede Zeile passt. Farben stammen aus der Tagesleiste (Wochentag/Temperaturen + Regen%).'},
  h_wx_a:{en:'A &middot; Now (temperature + icon)',de:'A &middot; Jetzt (Temperatur + Symbol)'},
  chk_bigtemp:{en:'Big temperature (with drawn &deg; ring)',de:'Große Temperatur (mit gezeichnetem &deg;-Ring)'},
  chk_bigicon:{en:'Big weather icon beside the temperature',de:'Großes Wettersymbol neben der Temperatur'},
@@ -752,6 +787,7 @@ function loadConfig(){return j('/api/config').then(function(c){C=c;
  sc('wxHrHour',wx.hrHour!==false); sc('wxHrIcon',wx.hrIcon!==false); sc('wxHrTemp',wx.hrTemp!==false); sc('wxHrPop',wx.hrPop!==false);
  sc('wxDyDay',wx.dyDay!==false); sc('wxDyIcon',wx.dyIcon!==false); sc('wxDyTemps',wx.dyTemps!==false); sc('wxDyPop',wx.dyPop!==false);
  sc('wxTrendLabels',!!wx.trendLabels);
+ sv('wxRainHours',wx.rainHours!=null?wx.rainHours:8); sv('wxRainStyle',wx.rainStyle!=null?wx.rainStyle:0);
  sv('wxTempColor',wx.tempColor!=null?wx.tempColor:0);
  sv('wxBigIconColor',wx.bigIconColor!=null?wx.bigIconColor:3);
  sv('wxCondColor',wx.condColor!=null?wx.condColor:7);
@@ -763,6 +799,7 @@ function loadConfig(){return j('/api/config').then(function(c){C=c;
  _wsz('wxTempSize',wx.tempSize,5);_wsz('wxCondSize',wx.condSize,3);_wsz('wxDetailSize',wx.detailSize,1);
  _wsz('wxHourlySize',wx.hourlySize,0);_wsz('wxDailySize',wx.dailySize,0);
  _wsz('wxHourlyCount',wx.hourlyCount,4);_wsz('wxHourlyStep',wx.hourlyStep,1);_wsz('wxDailyCount',wx.dailyCount,3);
+ _wsz('wxRainLabelSize',wx.rainLabelSize,2);_wsz('wxDaysCount',wx.daysCount,5);_wsz('wxDaysRowSize',wx.daysRowSize,3);
  // usage slice
  sv('usageUrl',u.usageUrl);
  sv('usagePollSec',u.pollSec);
@@ -810,6 +847,8 @@ function collect(){
   dailyCount:parseInt(gv('wxDailyCount'))||3,
   dyDay:gc('wxDyDay'),dyIcon:gc('wxDyIcon'),dyTemps:gc('wxDyTemps'),dyPop:gc('wxDyPop'),
   trendLabels:gc('wxTrendLabels'),
+  rainHours:parseInt(gv('wxRainHours'))||8,rainStyle:parseInt(gv('wxRainStyle'))||0,rainLabelSize:parseInt(gv('wxRainLabelSize'))||0,
+  daysCount:parseInt(gv('wxDaysCount'))||5,daysRowSize:parseInt(gv('wxDaysRowSize'))||0,
   tempSize:parseInt(gv('wxTempSize'))||0,condSize:parseInt(gv('wxCondSize'))||0,detailSize:parseInt(gv('wxDetailSize'))||0,
   hourlySize:parseInt(gv('wxHourlySize'))||0,dailySize:parseInt(gv('wxDailySize'))||0,
   tempColor:parseInt(gv('wxTempColor'))||0,bigIconColor:parseInt(gv('wxBigIconColor'))||0,

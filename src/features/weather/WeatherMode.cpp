@@ -110,6 +110,39 @@ static void drawFontCentered(Arduino_GFX* gfx, const char* s, int bandY, int ban
   drawCenteredAt(gfx, s, TFT_WIDTH / 2, bandY, bandH, color);
 }
 
+// Draw `s` left-aligned at `x`, vertically centred within [bandY, bandY+bandH).
+static void drawLeftAt(Arduino_GFX* gfx, const char* s, int x, int bandY,
+                       int bandH, uint16_t color) {
+  int16_t x1, y1; uint16_t w, h;
+  gfx->getTextBounds(s, 0, 0, &x1, &y1, &w, &h);
+  int py = bandY + (bandH - (int)h) / 2 - y1;
+  gfx->setTextColor(color);
+  gfx->setCursor(x - x1, py);
+  gfx->print(s);
+}
+
+// Draw `s` right-aligned so its ink ends at `xRight`, vertically centred.
+static void drawRightAt(Arduino_GFX* gfx, const char* s, int xRight, int bandY,
+                        int bandH, uint16_t color) {
+  int16_t x1, y1; uint16_t w, h;
+  gfx->getTextBounds(s, 0, 0, &x1, &y1, &w, &h);
+  int py = bandY + (bandH - (int)h) / 2 - y1;
+  gfx->setTextColor(color);
+  gfx->setCursor(xRight - (int)w - x1, py);
+  gfx->print(s);
+}
+
+// Largest CLK_PROP_FONTS index <= maxIdx whose "Mg" ink height fits `availH`.
+// Used by the full-screen pages to grow the font as the row/list count shrinks.
+static uint8_t wxFitPropFont(Arduino_GFX* gfx, int availH, uint8_t maxIdx) {
+  if (maxIdx > CLK_PROP_FONT_MAX) maxIdx = CLK_PROP_FONT_MAX;
+  for (int i = maxIdx; i > 0; i--) {
+    gfx->setFont(CLK_PROP_FONTS[i]);
+    if (fontHeight(gfx, "Mg") <= availH) return (uint8_t)i;
+  }
+  return 0;
+}
+
 // ---- weather icon (declared in weather_icons.h) ---------------------------
 // Sets the icon font, prints the glyph centred on (cx) within [topY,topY+boxH),
 // and leaves the icon font selected (callers always setFont before text again).
@@ -679,14 +712,17 @@ void WeatherMode::renderTempTrend(const Settings& s, const WeatherData& d) {
   wxPageEnd(gfx);
 }
 
-// ---- RAIN_TREND: full-screen hourly precipitation-probability bars ----------
+// ---- RAIN_TREND: full-screen hourly precipitation probability --------------
+// Two readable styles: wide labelled bars (fewer than the old 12 so each % is
+// big), or a two-column list ("15 Uhr   40%") in a large auto-fitted font.
 void WeatherMode::renderRainTrend(const Settings& s, const WeatherData& d) {
   Arduino_GFX* gfx = gfxDev();
   if (!gfx) return;
   const WeatherSettings& w = s.weather;
   wxPageBegin(gfx);
 
-  uint16_t barCol = wxColor(w.hourlyPop);
+  uint16_t barCol  = wxColor(w.hourlyPop);
+  uint16_t textCol = wxColor(w.hourlyColor);
   int titleBot = drawPageTitle(gfx, "Regen %", wxColor(w.condColor));
 
   if (!d.valid || d.nHours < 1) {
@@ -696,9 +732,37 @@ void WeatherMode::renderRainTrend(const Settings& s, const WeatherData& d) {
     return;
   }
 
-  int n = d.nHours;
+  // How many hours to show (clamped to the buffer we actually hold).
+  int want = constrain((int)w.rainHours, WX_RAIN_HOURS_MIN, WX_RAIN_HOURS_MAX);
+  int n = want < d.nHours ? want : d.nHours;
+  uint8_t lblMax = w.rainLabelSize < CLK_PROP_FONT_COUNT ? w.rainLabelSize : DEFAULT_WX_RAINLABELSIZE;
+
+  char sb[12];
+
+  if (w.rainStyle == WX_RAIN_LIST) {
+    // ---- List style: big "HH Uhr    NN%" rows, auto-sized to fill the height.
+    int top    = titleBot + 4;
+    int availH = TFT_HEIGHT - top - 4;
+    int rowH   = availH / n;
+    uint8_t fi = wxFitPropFont(gfx, rowH - 3, lblMax);
+    const uint8_t* font = CLK_PROP_FONTS[fi];
+    const int LX = 22;                  // hour left inset
+    const int RX = TFT_WIDTH - 22;      // % right inset
+    for (int i = 0; i < n; i++) {
+      int ry = top + rowH * i;
+      gfx->setFont(font);
+      snprintf(sb, sizeof(sb), "%d Uhr", d.hours[i].hour);
+      drawLeftAt(gfx, sb, LX, ry, rowH, textCol);
+      snprintf(sb, sizeof(sb), "%d%%", d.hours[i].pop);
+      drawRightAt(gfx, sb, RX, ry, rowH, barCol);
+    }
+    wxPageEnd(gfx);
+    return;
+  }
+
+  // ---- Bars style: fewer, wider bars so the % labels use a big font. --------
   const int X0 = 16, X1 = TFT_WIDTH - 8;
-  const int Y0 = titleBot + 20;              // room above the tallest bar for its %
+  const int Y0 = titleBot + 22;              // room above the tallest bar for its %
   const int Y1 = TFT_HEIGHT - WX_PG_MARGIN_B;
   const int PH = Y1 - Y0;
   int slot = (X1 - X0) / n;
@@ -706,23 +770,30 @@ void WeatherMode::renderRainTrend(const Settings& s, const WeatherData& d) {
 
   gfx->drawLine(X0, Y1, X1, Y1, C_GRAY);     // baseline (0%)
 
-  char sb[8];
+  const uint8_t* lblFont = CLK_PROP_FONTS[lblMax];
+  gfx->setFont(lblFont);
+  int lblH = fontHeight(gfx, "88");
+  // Only thin the labels to every-other bar when a two-digit % is wider than the
+  // slot (i.e. the 12-bar case at a big font); otherwise label every bar.
+  int stride = (fontWidth(gfx, "88") > slot - 2) ? 2 : 1;
+
   for (int i = 0; i < n; i++) {
     int cx  = X0 + slot * i + slot / 2;
     int pop = d.hours[i].pop;
     int bh  = PH * pop / 100;
     int by  = Y1 - bh;
     gfx->fillRect(cx - barW / 2, by, barW, bh, barCol);
-    // % value label above the bar
-    if (pop > 0) {
-      gfx->setFont(CLK_PROP_FONTS[0]);
+    bool label = (stride == 1) || (i % 2 == 0);
+    if (label && pop > 0) {
+      gfx->setFont(lblFont);
       snprintf(sb, sizeof(sb), "%d", pop);
-      drawCenteredAt(gfx, sb, cx, by - 13, 12, barCol);
+      drawCenteredAt(gfx, sb, cx, by - lblH - 3, lblH, barCol);
     }
-    // hour label under the baseline
-    gfx->setFont(CLK_PROP_FONTS[0]);
-    snprintf(sb, sizeof(sb), "%d", d.hours[i].hour);
-    drawCenteredAt(gfx, sb, cx, Y1 + 4, 16, C_GRAY);
+    if (label) {
+      gfx->setFont(CLK_PROP_FONTS[0]);
+      snprintf(sb, sizeof(sb), "%d", d.hours[i].hour);
+      drawCenteredAt(gfx, sb, cx, Y1 + 4, 16, C_GRAY);
+    }
   }
 
   wxPageEnd(gfx);
@@ -746,31 +817,70 @@ void WeatherMode::renderDays7(const Settings& s, const WeatherData& d) {
     return;
   }
 
-  int rows = d.nDays > WX_DAILY_POINTS ? WX_DAILY_POINTS : d.nDays;
+  // How many days to show (fewer rows -> bigger font).
+  int want = constrain((int)w.daysCount, WX_DAYS_COUNT_MIN, WX_DAYS_COUNT_MAX);
+  int rows = want < d.nDays ? want : d.nDays;
+  if (rows > WX_DAILY_POINTS) rows = WX_DAILY_POINTS;
+
   int top  = titleBot + 4;
   int rowH = (TFT_HEIGHT - top) / rows;
 
-  // Column centres (weekday | mini icon | max/min | rain%).
-  const int CX_DAY = 24, CX_ICON = 72, CX_TEMP = 148, CX_POP = 212;
-  const uint8_t* rowFont = CLK_PROP_FONTS[2];   // helvB12 — legible for 7 rows
+  // Big rows earn a big (4x) icon; tight rows keep the 2x mini icon.
+  bool bigIcon = rowH >= 42;
+  int  iconW   = bigIcon ? 30 : WX_ICON_MINI;   // ~glyph width of the 4x/2x icon
 
+  // Auto-fit the row font: start at the preferred size and shrink until every
+  // row fits BOTH the row height and the 240 px width (widest weekday/temp/pop).
+  uint8_t fiMax = w.daysRowSize < CLK_PROP_FONT_COUNT ? w.daysRowSize : DEFAULT_WX_DAYSROWSIZE;
+  const int COLGAP = 8;
   char sb[12];
+  int maxDayW = 0, maxTempW = 0, maxPopW = 0;
+  uint8_t fi = fiMax;
+  for (;; fi--) {
+    gfx->setFont(CLK_PROP_FONTS[fi]);
+    int fh = fontHeight(gfx, "Mg");
+    maxDayW = maxTempW = maxPopW = 0;
+    for (int r = 0; r < rows; r++) {
+      const WxDay& dd = d.days[r];
+      int dw = fontWidth(gfx, kWeekdayShortDE[dd.wday < 7 ? dd.wday : 0]);
+      if (dw > maxDayW) maxDayW = dw;
+      snprintf(sb, sizeof(sb), "%d/%d", (int)lroundf(dd.tmax), (int)lroundf(dd.tmin));
+      int tw = fontWidth(gfx, sb); if (tw > maxTempW) maxTempW = tw;
+      snprintf(sb, sizeof(sb), "%d%%", dd.popMax);
+      int pw = fontWidth(gfx, sb); if (pw > maxPopW) maxPopW = pw;
+    }
+    int totalW = maxDayW + COLGAP + iconW + COLGAP + maxTempW + COLGAP + maxPopW;
+    bool fits = (fh <= rowH - 2) && (totalW <= TFT_WIDTH - 12);
+    if (fits || fi == 0) break;
+  }
+  const uint8_t* rowFont = CLK_PROP_FONTS[fi];
+
+  // Evenly distribute the four columns across the width using the fitted widths:
+  // weekday hard-left, rain% hard-right, icon after the weekday, temps centred in
+  // the remaining gap — so the layout scales with the chosen font.
+  int leftX  = 6;
+  int rightX = TFT_WIDTH - 6;
+  int dayCx  = leftX + maxDayW / 2;
+  int popCx  = rightX - maxPopW / 2;
+  int iconCx = dayCx + maxDayW / 2 + COLGAP + iconW / 2;
+  int tempCx = ((iconCx + iconW / 2) + (popCx - maxPopW / 2)) / 2;
+
   for (int r = 0; r < rows; r++) {
     const WxDay& dd = d.days[r];
     int ry = top + rowH * r;
 
     gfx->setFont(rowFont);
-    drawCenteredAt(gfx, kWeekdayShortDE[dd.wday < 7 ? dd.wday : 0], CX_DAY, ry, rowH, dayCol);
+    drawCenteredAt(gfx, kWeekdayShortDE[dd.wday < 7 ? dd.wday : 0], dayCx, ry, rowH, dayCol);
 
     uint16_t iconCol = wxResolveIconColor(w, dd.code, true);
-    drawWeatherIcon(gfx, wmoIcon(dd.code, true), CX_ICON, ry, rowH, false, iconCol);
+    drawWeatherIcon(gfx, wmoIcon(dd.code, true), iconCx, ry, rowH, bigIcon, iconCol);
 
     gfx->setFont(rowFont);
     snprintf(sb, sizeof(sb), "%d/%d", (int)lroundf(dd.tmax), (int)lroundf(dd.tmin));
-    drawCenteredAt(gfx, sb, CX_TEMP, ry, rowH, dayCol);
+    drawCenteredAt(gfx, sb, tempCx, ry, rowH, dayCol);
 
     snprintf(sb, sizeof(sb), "%d%%", dd.popMax);
-    drawCenteredAt(gfx, sb, CX_POP, ry, rowH, popCol);
+    drawCenteredAt(gfx, sb, popCx, ry, rowH, popCol);
   }
 
   wxPageEnd(gfx);

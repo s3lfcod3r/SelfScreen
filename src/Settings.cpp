@@ -120,6 +120,13 @@ void WeatherSettings::setDefaults() {
 
   trendLabels  = DEFAULT_WX_TRENDLABELS;
 
+  rainHours    = DEFAULT_WX_RAIN_HOURS;
+  rainStyle    = DEFAULT_WX_RAIN_STYLE;
+  rainLabelSize= DEFAULT_WX_RAINLABELSIZE;
+
+  daysCount    = DEFAULT_WX_DAYS_COUNT;
+  daysRowSize  = DEFAULT_WX_DAYSROWSIZE;
+
   tempSize     = DEFAULT_WX_TEMPSIZE;
   condSize     = DEFAULT_WX_CONDSIZE;
   detailSize   = DEFAULT_WX_DETAILSIZE;
@@ -182,6 +189,13 @@ void WeatherSettings::toJson(JsonObject o) const {
   o["dyPop"]        = dyPop;
 
   o["trendLabels"]  = trendLabels;
+
+  o["rainHours"]    = rainHours;
+  o["rainStyle"]    = rainStyle;
+  o["rainLabelSize"]= rainLabelSize;
+
+  o["daysCount"]    = daysCount;
+  o["daysRowSize"]  = daysRowSize;
 
   o["tempSize"]     = tempSize;
   o["condSize"]     = condSize;
@@ -250,6 +264,16 @@ void WeatherSettings::fromJson(JsonObjectConst o) {
   if (o["dyPop"].is<bool>())       dyPop = o["dyPop"];
 
   if (o["trendLabels"].is<bool>()) trendLabels = o["trendLabels"];
+
+  // RAIN_TREND page. Absent keys keep the (bigger) defaults set above — an old
+  // config.json migrates to 8 wide bars with helvB12 labels.
+  if (o["rainHours"].is<int>())    rainHours = (uint8_t)constrain((int)o["rainHours"], WX_RAIN_HOURS_MIN, WX_RAIN_HOURS_MAX);
+  if (o["rainStyle"].is<int>())    rainStyle = (uint8_t)constrain((int)o["rainStyle"], 0, WX_RAIN_STYLE_MAX);
+  if (o["rainLabelSize"].is<int>())rainLabelSize = (uint8_t)constrain((int)o["rainLabelSize"], 0, CLK_PROP_FONT_MAX);
+
+  // DAYS7 page. Absent keys -> 5 rows at helvB14 (auto-shrinks to fit).
+  if (o["daysCount"].is<int>())    daysCount = (uint8_t)constrain((int)o["daysCount"], WX_DAYS_COUNT_MIN, WX_DAYS_COUNT_MAX);
+  if (o["daysRowSize"].is<int>())  daysRowSize = (uint8_t)constrain((int)o["daysRowSize"], 0, CLK_PROP_FONT_MAX);
 
   if (o["tempSize"].is<int>())     tempSize = (uint8_t)constrain((int)o["tempSize"], 0, CLK_NUM_FONT_MAX);
   if (o["condSize"].is<int>())     condSize = (uint8_t)constrain((int)o["condSize"], 0, CLK_PROP_FONT_MAX);
