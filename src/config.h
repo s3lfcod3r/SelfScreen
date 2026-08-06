@@ -120,8 +120,8 @@
 #define DEFAULT_CLK_SECONDS    false
 #define DEFAULT_CLK_WEEKDAY    true
 #define DEFAULT_CLK_DATEFMT    CLK_DATE_DE_LONG
-#define DEFAULT_CLK_TIMECOLOR  CLK_COL_SELFBLUE
-#define DEFAULT_CLK_DATECOLOR  CLK_COL_SELFBLUE_DK
+#define DEFAULT_CLK_TIMECOLOR  CLK_COL_WHITE
+#define DEFAULT_CLK_DATECOLOR  CLK_COL_WHITE
 #define DEFAULT_CLK_BIG        true
 
 // Claude usage mode: once data stops arriving for this long (PC asleep, daemon

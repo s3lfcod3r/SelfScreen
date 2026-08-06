@@ -293,8 +293,8 @@ function loadConfig(){return j('/api/config').then(function(c){C=c;
  var cf=c.clockFace||{};
  sc('clk24',cf.hour24!==false); sc('clkSeconds',!!cf.showSeconds); sc('clkWeekday',cf.showWeekday!==false);
  sv('clkDateFmt',cf.dateFormat!=null?cf.dateFormat:4);
- sv('clkTimeColor',cf.timeColor!=null?cf.timeColor:7);
- sv('clkDateColor',cf.dateColor!=null?cf.dateColor:8);
+ sv('clkTimeColor',cf.timeColor!=null?cf.timeColor:0);
+ sv('clkDateColor',cf.dateColor!=null?cf.dateColor:0);
  sv('clkBig',cf.bigSize!==false?1:0);
  // usage slice
  sv('usageUrl',u.usageUrl);
