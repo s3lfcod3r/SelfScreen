@@ -116,13 +116,28 @@
 #define CLK_COL_SELFBLUE_DK 8    // medium steel blue (C_SELFBLUE_DK)
 #define CLK_COL_MAX         CLK_COL_SELFBLUE_DK
 
-#define DEFAULT_CLK_24H        true
-#define DEFAULT_CLK_SECONDS    false
-#define DEFAULT_CLK_WEEKDAY    true
-#define DEFAULT_CLK_DATEFMT    CLK_DATE_DE_LONG
-#define DEFAULT_CLK_TIMECOLOR  CLK_COL_WHITE
-#define DEFAULT_CLK_DATECOLOR  CLK_COL_WHITE
-#define DEFAULT_CLK_BIG        true
+// Per-element font sizes. The web UI exposes a slider per element; the value is
+// an index into the ordered font tables in features/clock/u8g2_clock_fonts.h
+// (small -> large). These counts/defaults are the single source of truth: the
+// font header static_asserts against them, Settings clamps against them, and the
+// web UI slider max is COUNT-1.
+#define CLK_NUM_FONT_COUNT   7    // time: logisoso 16/22/32/42/50/62/78 _tn
+#define CLK_PROP_FONT_COUNT  6    // weekday/date: helvB 08/10/12/14/18/24 _tr
+#define CLK_NUM_FONT_MAX    (CLK_NUM_FONT_COUNT  - 1)
+#define CLK_PROP_FONT_MAX   (CLK_PROP_FONT_COUNT - 1)
+#define CLK_AP_FONT_IDX      2    // AM/PM marker font (helvB12, a small prop size)
+
+#define DEFAULT_CLK_24H          true
+#define DEFAULT_CLK_SECONDS      false
+#define DEFAULT_CLK_WEEKDAY      true
+#define DEFAULT_CLK_DATEFMT      CLK_DATE_DE_LONG
+#define DEFAULT_CLK_TIMECOLOR    CLK_COL_WHITE
+#define DEFAULT_CLK_DATECOLOR    CLK_COL_WHITE
+#define DEFAULT_CLK_WEEKDAYCOLOR CLK_COL_WHITE
+#define DEFAULT_CLK_LINECOLOR    CLK_COL_SELFBLUE   // visible accent by default
+#define DEFAULT_CLK_TIMESIZE     4    // logisoso50_tn  (index 4 = original look)
+#define DEFAULT_CLK_WEEKDAYSIZE  4    // helvB18_tr     (index 4 = original look)
+#define DEFAULT_CLK_DATESIZE     4    // helvB18_tr     (index 4 = original look)
 
 // Claude usage mode: once data stops arriving for this long (PC asleep, daemon
 // stopped, network down) the screen switches from the stats to the idle mascot

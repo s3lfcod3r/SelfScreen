@@ -147,23 +147,45 @@ small.hint{display:block;color:var(--mut);margin-top:4px;font-size:12px}
     <option value="2">DD.MM</option>
     <option value="3">Off (no date)</option>
    </select>
+   <label>Element sizes</label>
    <div class="row">
-    <div><label>Time colour</label>
+    <div><label class="muted">Time <span id="clkTimeSizeV"></span></label>
+     <input id="clkTimeSize" type="range" min="0" max="6" oninput="clkTimeSizeV.textContent=(+this.value+1)+'/7'"></div>
+    <div><label class="muted">Weekday <span id="clkWeekdaySizeV"></span></label>
+     <input id="clkWeekdaySize" type="range" min="0" max="5" oninput="clkWeekdaySizeV.textContent=(+this.value+1)+'/6'"></div>
+    <div><label class="muted">Date <span id="clkDateSizeV"></span></label>
+     <input id="clkDateSize" type="range" min="0" max="5" oninput="clkDateSizeV.textContent=(+this.value+1)+'/6'"></div>
+   </div>
+   <label>Element colours</label>
+   <div class="row">
+    <div><label class="muted">Time</label>
      <select id="clkTimeColor">
       <option value="0">White</option><option value="1">Teal</option><option value="2">Green</option>
       <option value="3">Yellow</option><option value="4">Red</option><option value="5">Blue</option><option value="6">Gray</option>
       <option value="7">Self-Blau (hell)</option><option value="8">Self-Blau (mittel)</option>
      </select></div>
-    <div><label>Date colour</label>
-     <select id="clkDateColor">
+    <div><label class="muted">Weekday</label>
+     <select id="clkWeekdayColor">
       <option value="0">White</option><option value="1">Teal</option><option value="2">Green</option>
       <option value="3">Yellow</option><option value="4">Red</option><option value="5">Blue</option><option value="6">Gray</option>
       <option value="7">Self-Blau (hell)</option><option value="8">Self-Blau (mittel)</option>
      </select></div>
    </div>
-   <label>Text size</label>
-   <select id="clkBig"><option value="1">Big</option><option value="0">Small</option></select>
-   <small class="hint">The clock is driven by NTP, which the device syncs automatically whenever the clock face is shown (or night mode is on). Set your timezone in the <b>Display</b> tab. Until the first sync lands the screen shows <code>--:--</code>.</small>
+   <div class="row">
+    <div><label class="muted">Date</label>
+     <select id="clkDateColor">
+      <option value="0">White</option><option value="1">Teal</option><option value="2">Green</option>
+      <option value="3">Yellow</option><option value="4">Red</option><option value="5">Blue</option><option value="6">Gray</option>
+      <option value="7">Self-Blau (hell)</option><option value="8">Self-Blau (mittel)</option>
+     </select></div>
+    <div><label class="muted">Separator line</label>
+     <select id="clkLineColor">
+      <option value="0">White</option><option value="1">Teal</option><option value="2">Green</option>
+      <option value="3">Yellow</option><option value="4">Red</option><option value="5">Blue</option><option value="6">Gray</option>
+      <option value="7">Self-Blau (hell)</option><option value="8">Self-Blau (mittel)</option>
+     </select></div>
+   </div>
+   <small class="hint">Every element is independent: drag a slider for its size and pick its colour. The clock is driven by NTP, which the device syncs automatically whenever the clock face is shown (or night mode is on). Set your timezone in the <b>Display</b> tab. Until the first sync lands the screen shows <code>--:--</code>.</small>
   </div>
  </section>
 
@@ -295,7 +317,10 @@ function loadConfig(){return j('/api/config').then(function(c){C=c;
  sv('clkDateFmt',cf.dateFormat!=null?cf.dateFormat:4);
  sv('clkTimeColor',cf.timeColor!=null?cf.timeColor:0);
  sv('clkDateColor',cf.dateColor!=null?cf.dateColor:0);
- sv('clkBig',cf.bigSize!==false?1:0);
+ sv('clkWeekdayColor',cf.weekdayColor!=null?cf.weekdayColor:0);
+ sv('clkLineColor',cf.lineColor!=null?cf.lineColor:7);
+ var _sz=function(id,v,mx){var e=$(id);if(!e)return;e.value=(v!=null?v:4);e.dispatchEvent(new Event('input'));};
+ _sz('clkTimeSize',cf.timeSize,6);_sz('clkWeekdaySize',cf.weekdaySize,5);_sz('clkDateSize',cf.dateSize,5);
  // usage slice
  sv('usageUrl',u.usageUrl);
  sv('usagePollSec',u.pollSec);
@@ -318,7 +343,10 @@ function collect(){
  // clock face slice
  if($('clk24')) o.clockFace={hour24:gc('clk24'),showSeconds:gc('clkSeconds'),showWeekday:gc('clkWeekday'),
   dateFormat:parseInt(gv('clkDateFmt'))||0,timeColor:parseInt(gv('clkTimeColor'))||0,
-  dateColor:parseInt(gv('clkDateColor'))||0,bigSize:gv('clkBig')==='1'};
+  dateColor:parseInt(gv('clkDateColor'))||0,weekdayColor:parseInt(gv('clkWeekdayColor'))||0,
+  lineColor:parseInt(gv('clkLineColor'))||0,
+  timeSize:parseInt(gv('clkTimeSize'))||0,weekdaySize:parseInt(gv('clkWeekdaySize'))||0,
+  dateSize:parseInt(gv('clkDateSize'))||0};
  // usage slice
  if($('usage')) o.usage={usageUrl:gv('usageUrl'), pollSec:parseInt(gv('usagePollSec'))||0};
  // clock slice

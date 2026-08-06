@@ -3,30 +3,23 @@
 #include <time.h>
 #include "Gfx.h"
 #include "Clock.h"
-#include "u8g2_clock_fonts.h"   // vendored, flash-resident U8g2 fonts (see header)
+#include "u8g2_clock_fonts.h"   // vendored, flash-resident U8g2 font tables (see header)
 
 ClockMode g_clockMode;
 
 // --- layout (240x240) ------------------------------------------------------
-// Four stacked bands, each cleared to black before its text is (re)drawn so a
-// per-second update never leaves ghosting and never needs a full-screen wipe.
-// A thin accent rule sits in the gap between the time and the date; it lives
-// outside every band so no per-second clear ever erases it.
-// Time on top (big U8g2 number font, native size), then the weekday directly
-// above the date, both in a smooth proportional U8g2 font. Bands are full-width
-// and non-overlapping so a per-second time update never disturbs the rows below.
-static const int TM_BAND_Y = 4,   TM_BAND_H = 100;  // big time at top
-static const int AP_BAND_Y = 104, AP_BAND_H = 18;   // AM/PM marker (12h only)
-static const int WD_BAND_Y = 124, WD_BAND_H = 52;   // weekday
-static const int DT_BAND_Y = 178, DT_BAND_H = 56;   // date, directly below weekday
-
-// U8g2 fonts render at their native pixel size (no integer scaling), so text is
-// crisp instead of blocky, and they live in FLASH (irom) rather than RAM.
-//   logisoso50_tn : big clock digits + ':' — HH:MM is huge, HH:MM:SS still fits.
-//   helvB18_tr    : Helvetica Bold 18px, proportional — weekday, date, AM/PM,
-//                   and the "small" time size.
-#define CLK_FONT_TIME_BIG   u8g2_font_logisoso50_tn
-#define CLK_FONT_PROP       u8g2_font_helvB18_tr
+// The face is a vertically-centred stack, computed dynamically from the chosen
+// per-element font sizes so any size combination stays centred and non-
+// overlapping:  TIME  (·AM/PM)  ── separator ──  WEEKDAY  DATE.
+// Every element gets a full-width horizontal band sized to its own text height.
+// Bands never overlap and the separator rule sits in a gap between bands, so a
+// per-second time update clears+redraws only the time (and AM/PM) band and never
+// disturbs — or flickers — the rows below it. Positions are cached on a full
+// repaint and reused for the cheap per-second updates.
+static const int LAY_GAP    = 6;    // vertical gap between stacked elements
+static const int LAY_AP_GAP = 2;    // tighter gap between the time and its AM/PM marker
+static const int LINE_W     = 140;  // separator rule width (px)
+static const int LINE_H     = 3;    // separator rule thickness (px)
 
 // CLK_COL_* preset index -> RGB565 (mirrors the web UI colour <select> order).
 static uint16_t clockColor(uint8_t i) {
@@ -94,6 +87,13 @@ static void clearBand(Arduino_GFX* gfx, int y, int h) {
   gfx->fillRect(0, y, TFT_WIDTH, h, C_BLACK);
 }
 
+// Ink height of `s` in the currently-set U8g2 font.
+static int fontHeight(Arduino_GFX* gfx, const char* s) {
+  int16_t x1, y1; uint16_t w, h;
+  gfx->getTextBounds(s, 0, 0, &x1, &y1, &w, &h);
+  return (int)h;
+}
+
 // Draw `s` centred horizontally on screen and vertically within [bandY, bandY+bandH)
 // using the currently-set U8g2 font. getTextBounds returns the real ink box (u8g2
 // glyphs carry their own bearing/baseline), so proportional text lands dead-centre.
@@ -114,7 +114,7 @@ void ClockMode::begin(const Settings& s) {
 }
 
 void ClockMode::invalidate(const Settings& s) {
-  needFull_ = true;                 // colours/format/size may have changed -> full repaint
+  needFull_ = true;                 // colours/format/sizes may have changed -> full repaint + relayout
   lastTime_[0] = lastDate_[0] = lastWd_[0] = 0;
 }
 
@@ -126,53 +126,95 @@ void ClockMode::service(const Settings& s) {
   char tm[16], ap[4], dt[24], wd[12];
   buildStrings(f, tm, sizeof(tm), ap, sizeof(ap), dt, sizeof(dt), wd, sizeof(wd));
 
+  // Resolve per-element fonts (indices clamped defensively against the tables).
+  uint8_t ti = f.timeSize    < CLK_NUM_FONT_COUNT  ? f.timeSize    : DEFAULT_CLK_TIMESIZE;
+  uint8_t wi = f.weekdaySize < CLK_PROP_FONT_COUNT ? f.weekdaySize : DEFAULT_CLK_WEEKDAYSIZE;
+  uint8_t di = f.dateSize    < CLK_PROP_FONT_COUNT ? f.dateSize    : DEFAULT_CLK_DATESIZE;
+  const uint8_t* timeFont = CLK_NUM_FONTS[ti];
+  const uint8_t* wdFont   = CLK_PROP_FONTS[wi];
+  const uint8_t* dtFont   = CLK_PROP_FONTS[di];
+  const uint8_t* apFont   = CLK_PROP_FONTS[CLK_AP_FONT_IDX];
+
+  // Per-element colours.
   uint16_t timeCol = clockColor(f.timeColor);
-  uint16_t dateCol = clockColor(f.dateColor);
+  uint16_t wdCol   = clockColor(f.weekdayColor);
+  uint16_t dtCol   = clockColor(f.dateColor);
+  uint16_t lnCol   = clockColor(f.lineColor);
 
-  if (needFull_) {
-    gfx->fillScreen(C_BLACK);
-  }
-
-  // U8g2 fonts: single native size (no scaling), UTF-8 print on. All strings are
-  // ASCII so UTF-8 decoding is a no-op, but it keeps the renderer on its u8g2 path.
+  // U8g2 fonts render at their native pixel size (no scaling) and print UTF-8.
+  // All strings are ASCII, so UTF-8 decoding is a no-op, but it keeps the
+  // renderer on its u8g2 path.
   gfx->setUTF8Print(true);
   gfx->setTextSize(1);
 
-  // Weekday band (proportional font).
-  if (needFull_ || strcmp(wd, lastWd_) != 0) {
-    clearBand(gfx, WD_BAND_Y, WD_BAND_H);
-    if (wd[0]) {
-      gfx->setFont(CLK_FONT_PROP);
-      drawFontCentered(gfx, wd, WD_BAND_Y, WD_BAND_H, dateCol);
+  if (needFull_) {
+    gfx->fillScreen(C_BLACK);
+
+    // ---- compute the centred stack from the chosen font sizes ----
+    // Reserve space for every element the *settings* enable (independent of NTP
+    // sync), so the first tick after sync fills reserved bands without relayout.
+    // Heights use worst-case sample glyphs (full-height digit / ascender+
+    // descender letters) so later content never clips its band.
+    gfx->setFont(timeFont); int hTime = fontHeight(gfx, "8");
+    int hAp = 0; if (!f.hour24) { gfx->setFont(apFont); hAp = fontHeight(gfx, "AM"); }
+    int hWd = 0; if (f.showWeekday) { gfx->setFont(wdFont); hWd = fontHeight(gfx, "Mg"); }
+    int hDt = 0; if (f.dateFormat != CLK_DATE_OFF) { gfx->setFont(dtFont); hDt = fontHeight(gfx, "0g"); }
+
+    // Try a comfortable gap first; if the stack overflows 240px (extreme size
+    // combo, e.g. huge time + seconds + everything on), tighten the gaps, then
+    // finally clamp the top to 0 and accept clipping at the very extremes.
+    int gap = LAY_GAP, top = 0;
+    for (;;) {
+      int H = hTime
+            + (hAp ? LAY_AP_GAP + hAp : 0)
+            + gap + LINE_H
+            + (hWd ? gap + hWd : 0)
+            + (hDt ? gap + hDt : 0);
+      top = (TFT_HEIGHT - H) / 2;
+      if (top >= 0 || gap <= 1) break;
+      gap -= 2; if (gap < 1) gap = 1;
     }
-    strlcpy(lastWd_, wd, sizeof(lastWd_));
+    if (top < 0) top = 0;
+
+    int y = top;
+    yTime_ = y; hTime_ = hTime; y += hTime;
+    if (hAp) { yAp_ = y + LAY_AP_GAP; hAp_ = hAp; y += LAY_AP_GAP + hAp; }
+    else     { yAp_ = 0; hAp_ = 0; }
+    y += gap;
+    yLine_ = y; y += LINE_H;
+    if (hWd) { y += gap; yWd_ = y; hWd_ = hWd; y += hWd; } else { yWd_ = 0; hWd_ = 0; }
+    if (hDt) { y += gap; yDate_ = y; hDate_ = hDt; y += hDt; } else { yDate_ = 0; hDate_ = 0; }
+
+    // Separator rule: drawn once per full repaint and left alone afterwards (it
+    // lives in a gap, outside every clear band, so per-second updates never
+    // erase it).
+    gfx->fillRect((TFT_WIDTH - LINE_W) / 2, yLine_, LINE_W, LINE_H, lnCol);
   }
 
-  // Time band (+ AM/PM band, so both repaint together on any time change). Big
-  // U8g2 number font at native size — smooth, not a small font scaled up into
-  // blocky pixels. "Small" size setting falls back to the proportional font.
+  // Time band (+ AM/PM). Clear + redraw together on any time change; both sit in
+  // their own bands above the separator so the rows below are untouched.
   if (needFull_ || strcmp(tm, lastTime_) != 0) {
-    clearBand(gfx, TM_BAND_Y, TM_BAND_H);
-    clearBand(gfx, AP_BAND_Y, AP_BAND_H);
-    // decorative separator line between time and weekday, redrawn with the time so
-    // the AP-band clear above never leaves it partly erased.
-    gfx->fillRect((TFT_WIDTH - 140) / 2, 114, 140, 3, timeCol);
-    gfx->setFont(f.bigSize ? CLK_FONT_TIME_BIG : CLK_FONT_PROP);
-    drawFontCentered(gfx, tm, TM_BAND_Y, TM_BAND_H, timeCol);
-    if (ap[0]) {
-      gfx->setFont(CLK_FONT_PROP);
-      drawFontCentered(gfx, ap, AP_BAND_Y, AP_BAND_H, dateCol);
+    clearBand(gfx, yTime_, hTime_);
+    gfx->setFont(timeFont);
+    drawFontCentered(gfx, tm, yTime_, hTime_, timeCol);
+    if (hAp_) {
+      clearBand(gfx, yAp_, hAp_);
+      if (ap[0]) { gfx->setFont(apFont); drawFontCentered(gfx, ap, yAp_, hAp_, timeCol); }
     }
     strlcpy(lastTime_, tm, sizeof(lastTime_));
   }
 
+  // Weekday band (proportional font). Reserved only when enabled.
+  if (hWd_ && (needFull_ || strcmp(wd, lastWd_) != 0)) {
+    clearBand(gfx, yWd_, hWd_);
+    if (wd[0]) { gfx->setFont(wdFont); drawFontCentered(gfx, wd, yWd_, hWd_, wdCol); }
+    strlcpy(lastWd_, wd, sizeof(lastWd_));
+  }
+
   // Date band (German long form by default; other formats honoured too).
-  if (needFull_ || strcmp(dt, lastDate_) != 0) {
-    clearBand(gfx, DT_BAND_Y, DT_BAND_H);
-    if (dt[0]) {
-      gfx->setFont(CLK_FONT_PROP);
-      drawFontCentered(gfx, dt, DT_BAND_Y, DT_BAND_H, dateCol);
-    }
+  if (hDate_ && (needFull_ || strcmp(dt, lastDate_) != 0)) {
+    clearBand(gfx, yDate_, hDate_);
+    if (dt[0]) { gfx->setFont(dtFont); drawFontCentered(gfx, dt, yDate_, hDate_, dtCol); }
     strlcpy(lastDate_, dt, sizeof(lastDate_));
   }
 

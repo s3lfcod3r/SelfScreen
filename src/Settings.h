@@ -29,13 +29,17 @@ struct UsageSettings {
 
 // ---- Clock face feature slice (MODE_CLOCK display options) ------------------
 struct ClockFaceSettings {
-  bool    hour24;      // true = 24h, false = 12h (with AM/PM)
-  bool    showSeconds; // append :SS to the time
-  bool    showWeekday; // show the weekday name (English, ASCII)
-  uint8_t dateFormat;  // CLK_DATE_* (DMY / YMD / DM / OFF)
-  uint8_t timeColor;   // CLK_COL_* preset index
-  uint8_t dateColor;   // CLK_COL_* preset index
-  bool    bigSize;     // true = big time, false = smaller
+  bool    hour24;       // true = 24h, false = 12h (with AM/PM)
+  bool    showSeconds;  // append :SS to the time
+  bool    showWeekday;  // show the weekday name (German, ASCII)
+  uint8_t dateFormat;   // CLK_DATE_* (DMY / YMD / DM / OFF / DE_LONG)
+  uint8_t timeColor;    // CLK_COL_* preset index — time
+  uint8_t dateColor;    // CLK_COL_* preset index — date
+  uint8_t weekdayColor; // CLK_COL_* preset index — weekday
+  uint8_t lineColor;    // CLK_COL_* preset index — separator rule
+  uint8_t timeSize;     // index into CLK_NUM_FONTS[]  (0..CLK_NUM_FONT_MAX)
+  uint8_t weekdaySize;  // index into CLK_PROP_FONTS[] (0..CLK_PROP_FONT_MAX)
+  uint8_t dateSize;     // index into CLK_PROP_FONTS[] (0..CLK_PROP_FONT_MAX)
 
   void setDefaults();
   void toJson(JsonObject o) const;

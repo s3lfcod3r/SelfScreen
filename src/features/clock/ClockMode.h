@@ -24,6 +24,15 @@ class ClockMode : public DisplayMode {
   char lastTime_[16] = {0};            // last drawn time string (dirty-tracking)
   char lastDate_[24] = {0};            // last drawn date string
   char lastWd_[12]   = {0};            // last drawn weekday string (German, e.g. "Donnerstag")
+
+  // Cached layout, recomputed only on a full repaint (needFull_). Every band is
+  // full-width; a per-second time update clears just the time (+AM/PM) band and
+  // redraws it, so weekday / date / separator are never touched or flickered.
+  int yTime_ = 0, hTime_ = 0;          // big time band
+  int yAp_   = 0, hAp_   = 0;          // AM/PM marker band (0 = none, 24h)
+  int yLine_ = 0;                      // separator rule top (fixed height, see .cpp)
+  int yWd_   = 0, hWd_   = 0;          // weekday band (0 = disabled)
+  int yDate_ = 0, hDate_ = 0;          // date band (0 = disabled)
 };
 
 extern ClockMode g_clockMode;

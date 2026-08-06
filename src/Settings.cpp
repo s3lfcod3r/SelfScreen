@@ -26,33 +26,49 @@ void UsageSettings::fromJson(JsonObjectConst o) {
 // Clock face slice (MODE_CLOCK display options)
 // ===========================================================================
 void ClockFaceSettings::setDefaults() {
-  hour24      = DEFAULT_CLK_24H;
-  showSeconds = DEFAULT_CLK_SECONDS;
-  showWeekday = DEFAULT_CLK_WEEKDAY;
-  dateFormat  = DEFAULT_CLK_DATEFMT;
-  timeColor   = DEFAULT_CLK_TIMECOLOR;
-  dateColor   = DEFAULT_CLK_DATECOLOR;
-  bigSize     = DEFAULT_CLK_BIG;
+  hour24       = DEFAULT_CLK_24H;
+  showSeconds  = DEFAULT_CLK_SECONDS;
+  showWeekday  = DEFAULT_CLK_WEEKDAY;
+  dateFormat   = DEFAULT_CLK_DATEFMT;
+  timeColor    = DEFAULT_CLK_TIMECOLOR;
+  dateColor    = DEFAULT_CLK_DATECOLOR;
+  weekdayColor = DEFAULT_CLK_WEEKDAYCOLOR;
+  lineColor    = DEFAULT_CLK_LINECOLOR;
+  timeSize     = DEFAULT_CLK_TIMESIZE;
+  weekdaySize  = DEFAULT_CLK_WEEKDAYSIZE;
+  dateSize     = DEFAULT_CLK_DATESIZE;
 }
 
 void ClockFaceSettings::toJson(JsonObject o) const {
-  o["hour24"]      = hour24;
-  o["showSeconds"] = showSeconds;
-  o["showWeekday"] = showWeekday;
-  o["dateFormat"]  = dateFormat;
-  o["timeColor"]   = timeColor;
-  o["dateColor"]   = dateColor;
-  o["bigSize"]     = bigSize;
+  o["hour24"]       = hour24;
+  o["showSeconds"]  = showSeconds;
+  o["showWeekday"]  = showWeekday;
+  o["dateFormat"]   = dateFormat;
+  o["timeColor"]    = timeColor;
+  o["dateColor"]    = dateColor;
+  o["weekdayColor"] = weekdayColor;
+  o["lineColor"]    = lineColor;
+  o["timeSize"]     = timeSize;
+  o["weekdaySize"]  = weekdaySize;
+  o["dateSize"]     = dateSize;
 }
 
 void ClockFaceSettings::fromJson(JsonObjectConst o) {
-  if (o["hour24"].is<bool>())      hour24 = o["hour24"];
-  if (o["showSeconds"].is<bool>()) showSeconds = o["showSeconds"];
-  if (o["showWeekday"].is<bool>()) showWeekday = o["showWeekday"];
-  if (o["dateFormat"].is<int>())   dateFormat = (uint8_t)constrain((int)o["dateFormat"], 0, CLK_DATE_MAX);
-  if (o["timeColor"].is<int>())    timeColor = (uint8_t)constrain((int)o["timeColor"], 0, CLK_COL_MAX);
-  if (o["dateColor"].is<int>())    dateColor = (uint8_t)constrain((int)o["dateColor"], 0, CLK_COL_MAX);
-  if (o["bigSize"].is<bool>())     bigSize = o["bigSize"];
+  if (o["hour24"].is<bool>())       hour24 = o["hour24"];
+  if (o["showSeconds"].is<bool>())  showSeconds = o["showSeconds"];
+  if (o["showWeekday"].is<bool>())  showWeekday = o["showWeekday"];
+  if (o["dateFormat"].is<int>())    dateFormat = (uint8_t)constrain((int)o["dateFormat"], 0, CLK_DATE_MAX);
+  if (o["timeColor"].is<int>())     timeColor = (uint8_t)constrain((int)o["timeColor"], 0, CLK_COL_MAX);
+  if (o["dateColor"].is<int>())     dateColor = (uint8_t)constrain((int)o["dateColor"], 0, CLK_COL_MAX);
+  if (o["weekdayColor"].is<int>())  weekdayColor = (uint8_t)constrain((int)o["weekdayColor"], 0, CLK_COL_MAX);
+  if (o["lineColor"].is<int>())     lineColor = (uint8_t)constrain((int)o["lineColor"], 0, CLK_COL_MAX);
+  if (o["timeSize"].is<int>())      timeSize = (uint8_t)constrain((int)o["timeSize"], 0, CLK_NUM_FONT_MAX);
+  if (o["weekdaySize"].is<int>())   weekdaySize = (uint8_t)constrain((int)o["weekdaySize"], 0, CLK_PROP_FONT_MAX);
+  if (o["dateSize"].is<int>())      dateSize = (uint8_t)constrain((int)o["dateSize"], 0, CLK_PROP_FONT_MAX);
+  // Back-compat: pre-slider firmware stored a single bool "bigSize". If that is
+  // all the config carries, keep the current look (defaults already applied) —
+  // small was the proportional font, which no longer maps cleanly, so we simply
+  // do not crash and leave the size sliders at their defaults.
 }
 
 // ===========================================================================
