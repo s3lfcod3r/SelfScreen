@@ -4,6 +4,7 @@
 #include "Gfx.h"
 #include "Clock.h"
 #include "FreeSansBold10pt7b.h"   // vendored Adafruit-GFX bold font (ASCII 0x20-0x7E, ~2.2 KB)
+#include "FreeSansBold24pt7b.h"   // large bold font for the big, smooth time
 
 ClockMode g_clockMode;
 
@@ -149,13 +150,19 @@ void ClockMode::service(const Settings& s) {
     strlcpy(lastWd_, wd, sizeof(lastWd_));
   }
 
-  // Time band (+ AM/PM band, so both repaint together on any time change).
+  // Time band (+ AM/PM band, so both repaint together on any time change). Uses the
+  // big 24pt font at size 1 so the digits are smooth, not a small font scaled up
+  // into blocky pixels.
   if (needFull_ || strcmp(tm, lastTime_) != 0) {
     clearBand(gfx, TM_BAND_Y, TM_BAND_H);
     clearBand(gfx, AP_BAND_Y, AP_BAND_H);
-    uint8_t sz = fontFit(gfx, tm, 234, f.bigSize ? 5 : 3);   // big time, max width
-    gfx->setTextSize(sz);
+    // decorative separator line between time and weekday, redrawn with the time so
+    // the AP-band clear above never leaves it partly erased.
+    gfx->fillRect((TFT_WIDTH - 140) / 2, 114, 140, 3, timeCol);
+    gfx->setFont(&FreeSansBold24pt7b);
+    gfx->setTextSize(1);
     drawFontCentered(gfx, tm, TM_BAND_Y, TM_BAND_H, timeCol);
+    gfx->setFont(&FreeSansBold10pt7b);   // back to the small font for AM/PM + date
     if (ap[0]) {
       gfx->setTextSize(1);
       drawFontCentered(gfx, ap, AP_BAND_Y, AP_BAND_H, dateCol);
