@@ -25,6 +25,9 @@
 #if WITH_CLOCK
 #include "ClockMode.h"
 #endif
+#if WITH_WEATHER
+#include "WeatherMode.h"
+#endif
 
 // ---- mode registry --------------------------------------------------------
 // The compiled-in features, in display order. main.cpp holds no per-feature
@@ -32,6 +35,9 @@
 static DisplayMode* kModes[] = {
 #if WITH_CLOCK
   &g_clockMode,
+#endif
+#if WITH_WEATHER
+  &g_weatherMode,
 #endif
 #if WITH_USAGE
   &g_usageMode,
@@ -47,9 +53,10 @@ static uint32_t g_carSwitch = 0;
 
 static bool carouselHas(const Settings& s, const DisplayMode* m) {
   switch (m->modeConst()) {
-    case MODE_USAGE:  return s.carouselUsage;
-    case MODE_CLOCK:  return s.carouselClock;
-    default:          return true;
+    case MODE_USAGE:   return s.carouselUsage;
+    case MODE_CLOCK:   return s.carouselClock;
+    case MODE_WEATHER: return s.carouselWeather;
+    default:           return true;
   }
 }
 

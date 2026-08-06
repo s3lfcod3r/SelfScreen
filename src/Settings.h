@@ -46,6 +46,29 @@ struct ClockFaceSettings {
   void fromJson(JsonObjectConst o);
 };
 
+// ---- Weather feature slice (MODE_WEATHER display options) -------------------
+struct WeatherSettings {
+  float    lat;          // latitude  (Open-Meteo query)
+  float    lon;          // longitude
+  bool     unitF;        // false = Celsius, true = Fahrenheit
+  uint16_t refreshSec;   // seconds between fetches
+  bool     showTemp;     // show the big temperature
+  bool     showCond;     // show the German condition text
+  bool     showPrecip;   // show the precipitation line
+  bool     showTrend;    // show the 12h temperature sparkline
+  uint8_t  tempSize;     // index into CLK_NUM_FONTS[]  (0..CLK_NUM_FONT_MAX)
+  uint8_t  condSize;     // index into CLK_PROP_FONTS[] (0..CLK_PROP_FONT_MAX)
+  uint8_t  precipSize;   // index into CLK_PROP_FONTS[] (0..CLK_PROP_FONT_MAX)
+  uint8_t  tempColor;    // CLK_COL_* preset index — temperature
+  uint8_t  condColor;    // CLK_COL_* preset index — condition text
+  uint8_t  precipColor;  // CLK_COL_* preset index — precipitation
+  uint8_t  trendColor;   // CLK_COL_* preset index — sparkline
+
+  void setDefaults();
+  void toJson(JsonObject o) const;
+  void fromJson(JsonObjectConst o);
+};
+
 // ---- Clock / night mode slice (device-wide) --------------------------------
 struct ClockSettings {
   String   tz;            // IANA display name, e.g. "Europe/Rome" (UI round-trip)
@@ -78,6 +101,7 @@ struct Settings {
   uint16_t carouselSec;
   bool carouselUsage;
   bool carouselClock;
+  bool carouselWeather;
 
   // --- Shared HTTP / display ---
   uint16_t httpTimeout; // ms
@@ -89,6 +113,7 @@ struct Settings {
   // --- Feature slices ---
   UsageSettings     usage;
   ClockFaceSettings clockFace;
+  WeatherSettings   weather;
   ClockSettings     clock;
 
   void setDefaults();

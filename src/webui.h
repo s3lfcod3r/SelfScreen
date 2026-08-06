@@ -62,6 +62,7 @@ small.hint{display:block;color:var(--mut);margin-top:4px;font-size:12px}
  <button data-t="wifi">WiFi</button>
  <button data-t="display">Display</button>
  <button data-t="clock">Clock</button>
+ <button data-t="weather">Weather</button>
  <button data-t="usage">Usage</button>
  <button data-t="update">Update</button>
 </nav>
@@ -99,12 +100,14 @@ small.hint{display:block;color:var(--mut);margin-top:4px;font-size:12px}
    <label>What this device shows</label>
    <select id="mode" onchange="modeChanged()">
     <option value="clock">Clock</option>
+    <option value="weather">Weather</option>
     <option value="usage">Claude usage</option>
     <option value="carousel">Carousel (rotate modes)</option>
    </select>
    <div id="carouselRow">
     <label>Switch mode every (s)</label><input id="carouselSec" type="number" min="5" max="3600">
     <div class="chk"><input id="carouselClock" type="checkbox"><label>Clock</label></div>
+    <div class="chk"><input id="carouselWeather" type="checkbox"><label>Weather</label></div>
     <div class="chk"><input id="carouselUsage" type="checkbox"><label>Claude usage</label></div>
    </div>
    <small class="hint">Pick the active feature, then configure it in its own tab. Carousel rotates through the ticked features.</small>
@@ -186,6 +189,65 @@ small.hint{display:block;color:var(--mut);margin-top:4px;font-size:12px}
      </select></div>
    </div>
    <small class="hint">Every element is independent: drag a slider for its size and pick its colour. The clock is driven by NTP, which the device syncs automatically whenever the clock face is shown (or night mode is on). Set your timezone in the <b>Display</b> tab. Until the first sync lands the screen shows <code>--:--</code>.</small>
+  </div>
+ </section>
+
+ <!-- WEATHER (feature) -->
+ <section id="weather" class="tab">
+  <div class="card"><h2>Location &amp; data</h2>
+   <div class="row">
+    <div><label>Latitude</label><input id="wxLat" type="number" step="0.01" min="-90" max="90"></div>
+    <div><label>Longitude</label><input id="wxLon" type="number" step="0.01" min="-180" max="180"></div>
+   </div>
+   <label>Units</label>
+   <select id="wxUnit"><option value="0">&deg;C (Celsius)</option><option value="1">&deg;F (Fahrenheit)</option></select>
+   <label>Refresh weather (s)</label><input id="wxRefresh" type="number" min="60" max="21600">
+   <small class="hint">Data from <a href="https://open-meteo.com" target="_blank">Open-Meteo</a> over plain HTTP (no API key). Default location is Hamburg (53.55, 9.99). Condition text is German. Until the first fetch lands the screen shows <code>--</code>.</small>
+  </div>
+  <div class="card"><h2>Elements</h2>
+   <div class="chk"><input id="wxShowTemp" type="checkbox"><label>Temperature</label></div>
+   <div class="chk"><input id="wxShowCond" type="checkbox"><label>Condition text (Klar, Bewoelkt, Regen, ...)</label></div>
+   <div class="chk"><input id="wxShowPrecip" type="checkbox"><label>Precipitation (mm)</label></div>
+   <div class="chk"><input id="wxShowTrend" type="checkbox"><label>12h temperature trend (sparkline)</label></div>
+   <label>Element sizes</label>
+   <div class="row">
+    <div><label class="muted">Temperature <span id="wxTempSizeV"></span></label>
+     <input id="wxTempSize" type="range" min="0" max="6" oninput="wxTempSizeV.textContent=(+this.value+1)+'/7'"></div>
+    <div><label class="muted">Condition <span id="wxCondSizeV"></span></label>
+     <input id="wxCondSize" type="range" min="0" max="5" oninput="wxCondSizeV.textContent=(+this.value+1)+'/6'"></div>
+    <div><label class="muted">Precip <span id="wxPrecipSizeV"></span></label>
+     <input id="wxPrecipSize" type="range" min="0" max="5" oninput="wxPrecipSizeV.textContent=(+this.value+1)+'/6'"></div>
+   </div>
+   <label>Element colours</label>
+   <div class="row">
+    <div><label class="muted">Temperature</label>
+     <select id="wxTempColor">
+      <option value="0">White</option><option value="1">Teal</option><option value="2">Green</option>
+      <option value="3">Yellow</option><option value="4">Red</option><option value="5">Blue</option><option value="6">Gray</option>
+      <option value="7">Self-Blau (hell)</option><option value="8">Self-Blau (mittel)</option>
+     </select></div>
+    <div><label class="muted">Condition</label>
+     <select id="wxCondColor">
+      <option value="0">White</option><option value="1">Teal</option><option value="2">Green</option>
+      <option value="3">Yellow</option><option value="4">Red</option><option value="5">Blue</option><option value="6">Gray</option>
+      <option value="7">Self-Blau (hell)</option><option value="8">Self-Blau (mittel)</option>
+     </select></div>
+   </div>
+   <div class="row">
+    <div><label class="muted">Precipitation</label>
+     <select id="wxPrecipColor">
+      <option value="0">White</option><option value="1">Teal</option><option value="2">Green</option>
+      <option value="3">Yellow</option><option value="4">Red</option><option value="5">Blue</option><option value="6">Gray</option>
+      <option value="7">Self-Blau (hell)</option><option value="8">Self-Blau (mittel)</option>
+     </select></div>
+    <div><label class="muted">Trend line</label>
+     <select id="wxTrendColor">
+      <option value="0">White</option><option value="1">Teal</option><option value="2">Green</option>
+      <option value="3">Yellow</option><option value="4">Red</option><option value="5">Blue</option><option value="6">Gray</option>
+      <option value="7">Self-Blau (hell)</option><option value="8">Self-Blau (mittel)</option>
+     </select></div>
+   </div>
+   <small class="hint">Every element is independent: toggle it, drag its size slider and pick its colour. Temperature uses the big number font (with a drawn &deg; ring); condition and precipitation use the proportional font.</small>
   </div>
  </section>
 
@@ -310,6 +372,7 @@ function loadConfig(){return j('/api/config').then(function(c){C=c;
  $('mode').value=c.mode||'clock'; modeChanged();
  sv('carouselSec',c.carouselSec||30);
  sc('carouselClock',c.carouselClock!==false);
+ sc('carouselWeather',c.carouselWeather!==false);
  sc('carouselUsage',c.carouselUsage!==false);
  // clock face slice
  var cf=c.clockFace||{};
@@ -321,6 +384,18 @@ function loadConfig(){return j('/api/config').then(function(c){C=c;
  sv('clkLineColor',cf.lineColor!=null?cf.lineColor:7);
  var _sz=function(id,v,mx){var e=$(id);if(!e)return;e.value=(v!=null?v:4);e.dispatchEvent(new Event('input'));};
  _sz('clkTimeSize',cf.timeSize,6);_sz('clkWeekdaySize',cf.weekdaySize,5);_sz('clkDateSize',cf.dateSize,5);
+ // weather slice
+ var wx=c.weather||{};
+ sv('wxLat',wx.lat!=null?wx.lat:53.55); sv('wxLon',wx.lon!=null?wx.lon:9.99);
+ sv('wxUnit',wx.unitF?1:0); sv('wxRefresh',wx.refreshSec!=null?wx.refreshSec:600);
+ sc('wxShowTemp',wx.showTemp!==false); sc('wxShowCond',wx.showCond!==false);
+ sc('wxShowPrecip',wx.showPrecip!==false); sc('wxShowTrend',wx.showTrend!==false);
+ sv('wxTempColor',wx.tempColor!=null?wx.tempColor:0);
+ sv('wxCondColor',wx.condColor!=null?wx.condColor:7);
+ sv('wxPrecipColor',wx.precipColor!=null?wx.precipColor:6);
+ sv('wxTrendColor',wx.trendColor!=null?wx.trendColor:1);
+ var _wsz=function(id,v,dv){var e=$(id);if(!e)return;e.value=(v!=null?v:dv);e.dispatchEvent(new Event('input'));};
+ _wsz('wxTempSize',wx.tempSize,5);_wsz('wxCondSize',wx.condSize,4);_wsz('wxPrecipSize',wx.precipSize,2);
  // usage slice
  sv('usageUrl',u.usageUrl);
  sv('usagePollSec',u.pollSec);
@@ -333,6 +408,7 @@ function collect(){
  var o={mode:gv('mode'),
   carouselSec:parseInt(gv('carouselSec'))||30,
   carouselClock:gc('carouselClock'),
+  carouselWeather:gc('carouselWeather'),
   carouselUsage:gc('carouselUsage'),
   brightness:parseInt(gv('brightness'))||0,
   rotation:parseInt(gv('rotation')),
@@ -347,6 +423,13 @@ function collect(){
   lineColor:parseInt(gv('clkLineColor'))||0,
   timeSize:parseInt(gv('clkTimeSize'))||0,weekdaySize:parseInt(gv('clkWeekdaySize'))||0,
   dateSize:parseInt(gv('clkDateSize'))||0};
+ // weather slice
+ if($('wxLat')) o.weather={lat:parseFloat(gv('wxLat')),lon:parseFloat(gv('wxLon')),
+  unitF:gv('wxUnit')==='1',refreshSec:parseInt(gv('wxRefresh'))||600,
+  showTemp:gc('wxShowTemp'),showCond:gc('wxShowCond'),showPrecip:gc('wxShowPrecip'),showTrend:gc('wxShowTrend'),
+  tempSize:parseInt(gv('wxTempSize'))||0,condSize:parseInt(gv('wxCondSize'))||0,precipSize:parseInt(gv('wxPrecipSize'))||0,
+  tempColor:parseInt(gv('wxTempColor'))||0,condColor:parseInt(gv('wxCondColor'))||0,
+  precipColor:parseInt(gv('wxPrecipColor'))||0,trendColor:parseInt(gv('wxTrendColor'))||0};
  // usage slice
  if($('usage')) o.usage={usageUrl:gv('usageUrl'), pollSec:parseInt(gv('usagePollSec'))||0};
  // clock slice

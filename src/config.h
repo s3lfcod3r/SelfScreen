@@ -71,6 +71,7 @@
 #define MODE_RADAR     2    // retired (radar feature removed); kept for config back-compat
 #define MODE_CAROUSEL  3
 #define MODE_CLOCK     4    // time + date face (fed by SNTP, see Clock.*)
+#define MODE_WEATHER   5    // current weather + 12h trend (Open-Meteo, see features/weather)
 #define DEFAULT_MODE MODE_CLOCK
 #define DEFAULT_CAROUSEL_SEC 30      // per-mode dwell in carousel
 
@@ -91,6 +92,9 @@
 #endif
 #ifndef WITH_RADAR
 #define WITH_RADAR 0     // radar feature removed in SelfScreen
+#endif
+#ifndef WITH_WEATHER
+#define WITH_WEATHER 1   // current weather + 12h temperature trend (Open-Meteo)
 #endif
 
 // ---------------------------------------------------------------------------
@@ -138,6 +142,47 @@
 #define DEFAULT_CLK_TIMESIZE     4    // logisoso50_tn  (index 4 = original look)
 #define DEFAULT_CLK_WEEKDAYSIZE  4    // helvB18_tr     (index 4 = original look)
 #define DEFAULT_CLK_DATESIZE     4    // helvB18_tr     (index 4 = original look)
+
+// ---------------------------------------------------------------------------
+// Weather face (MODE_WEATHER) — current conditions + a 12h temperature trend,
+// fetched from Open-Meteo over plain HTTP (no API key, no TLS). Every element is
+// individually configurable in the web UI: per-element size sliders map into the
+// clock's font tables (temperature -> CLK_NUM_FONTS big look, condition/precip ->
+// CLK_PROP_FONTS), and per-element colours reuse the clock's CLK_COL_* presets
+// (same order, mirrored in the web UI <select>).
+// ---------------------------------------------------------------------------
+#define WX_COL_MAX  CLK_COL_MAX          // colours share the clock preset list
+
+// Open-Meteo forecast endpoint (plain HTTP). The device appends the query with
+// latitude/longitude/units at fetch time. Response is ~400-900 bytes.
+#define WX_API_HOST      "api.open-meteo.com"
+#define WX_API_PATH      "/v1/forecast"
+#define WX_HOURLY_POINTS 12              // hourly temps kept for the trend sparkline
+
+#define DEFAULT_WX_LAT        53.55f     // Hamburg
+#define DEFAULT_WX_LON        9.99f
+#define DEFAULT_WX_UNITF      false      // false = Celsius, true = Fahrenheit
+#define DEFAULT_WX_REFRESH    600        // seconds between fetches
+#define WX_REFRESH_MIN        60
+#define WX_REFRESH_MAX        21600      // 6 h
+#define WX_RETRY_SEC          30         // faster retry after a failed fetch
+
+#define DEFAULT_WX_SHOWTEMP    true
+#define DEFAULT_WX_SHOWCOND    true
+#define DEFAULT_WX_SHOWPRECIP  true
+#define DEFAULT_WX_SHOWTREND   true
+
+// Sizes are indices into the clock font tables (see u8g2_clock_fonts.h). The web
+// UI slider max is the matching CLK_*_FONT_MAX. Temperature uses the big number
+// fonts; condition/precipitation use the proportional letter fonts.
+#define DEFAULT_WX_TEMPSIZE    5         // CLK_NUM_FONTS  index (logisoso62_tn)
+#define DEFAULT_WX_CONDSIZE    4         // CLK_PROP_FONTS index (helvB18_tr)
+#define DEFAULT_WX_PRECIPSIZE  2         // CLK_PROP_FONTS index (helvB12_tr)
+
+#define DEFAULT_WX_TEMPCOLOR    CLK_COL_WHITE
+#define DEFAULT_WX_CONDCOLOR    CLK_COL_SELFBLUE
+#define DEFAULT_WX_PRECIPCOLOR  CLK_COL_GRAY
+#define DEFAULT_WX_TRENDCOLOR   CLK_COL_TEAL
 
 // Claude usage mode: once data stops arriving for this long (PC asleep, daemon
 // stopped, network down) the screen switches from the stats to the idle mascot

@@ -72,6 +72,63 @@ void ClockFaceSettings::fromJson(JsonObjectConst o) {
 }
 
 // ===========================================================================
+// Weather slice (MODE_WEATHER display options)
+// ===========================================================================
+void WeatherSettings::setDefaults() {
+  lat         = DEFAULT_WX_LAT;
+  lon         = DEFAULT_WX_LON;
+  unitF       = DEFAULT_WX_UNITF;
+  refreshSec  = DEFAULT_WX_REFRESH;
+  showTemp    = DEFAULT_WX_SHOWTEMP;
+  showCond    = DEFAULT_WX_SHOWCOND;
+  showPrecip  = DEFAULT_WX_SHOWPRECIP;
+  showTrend   = DEFAULT_WX_SHOWTREND;
+  tempSize    = DEFAULT_WX_TEMPSIZE;
+  condSize    = DEFAULT_WX_CONDSIZE;
+  precipSize  = DEFAULT_WX_PRECIPSIZE;
+  tempColor   = DEFAULT_WX_TEMPCOLOR;
+  condColor   = DEFAULT_WX_CONDCOLOR;
+  precipColor = DEFAULT_WX_PRECIPCOLOR;
+  trendColor  = DEFAULT_WX_TRENDCOLOR;
+}
+
+void WeatherSettings::toJson(JsonObject o) const {
+  o["lat"]         = lat;
+  o["lon"]         = lon;
+  o["unitF"]       = unitF;
+  o["refreshSec"]  = refreshSec;
+  o["showTemp"]    = showTemp;
+  o["showCond"]    = showCond;
+  o["showPrecip"]  = showPrecip;
+  o["showTrend"]   = showTrend;
+  o["tempSize"]    = tempSize;
+  o["condSize"]    = condSize;
+  o["precipSize"]  = precipSize;
+  o["tempColor"]   = tempColor;
+  o["condColor"]   = condColor;
+  o["precipColor"] = precipColor;
+  o["trendColor"]  = trendColor;
+}
+
+void WeatherSettings::fromJson(JsonObjectConst o) {
+  if (o["lat"].is<float>())         lat = constrain((float)o["lat"], -90.0f, 90.0f);
+  if (o["lon"].is<float>())         lon = constrain((float)o["lon"], -180.0f, 180.0f);
+  if (o["unitF"].is<bool>())        unitF = o["unitF"];
+  if (o["refreshSec"].is<int>())    refreshSec = (uint16_t)constrain((int)o["refreshSec"], WX_REFRESH_MIN, WX_REFRESH_MAX);
+  if (o["showTemp"].is<bool>())     showTemp = o["showTemp"];
+  if (o["showCond"].is<bool>())     showCond = o["showCond"];
+  if (o["showPrecip"].is<bool>())   showPrecip = o["showPrecip"];
+  if (o["showTrend"].is<bool>())    showTrend = o["showTrend"];
+  if (o["tempSize"].is<int>())      tempSize = (uint8_t)constrain((int)o["tempSize"], 0, CLK_NUM_FONT_MAX);
+  if (o["condSize"].is<int>())      condSize = (uint8_t)constrain((int)o["condSize"], 0, CLK_PROP_FONT_MAX);
+  if (o["precipSize"].is<int>())    precipSize = (uint8_t)constrain((int)o["precipSize"], 0, CLK_PROP_FONT_MAX);
+  if (o["tempColor"].is<int>())     tempColor = (uint8_t)constrain((int)o["tempColor"], 0, WX_COL_MAX);
+  if (o["condColor"].is<int>())     condColor = (uint8_t)constrain((int)o["condColor"], 0, WX_COL_MAX);
+  if (o["precipColor"].is<int>())   precipColor = (uint8_t)constrain((int)o["precipColor"], 0, WX_COL_MAX);
+  if (o["trendColor"].is<int>())    trendColor = (uint8_t)constrain((int)o["trendColor"], 0, WX_COL_MAX);
+}
+
+// ===========================================================================
 // Clock / night mode slice
 // ===========================================================================
 static uint16_t hhmmToMin(const char* s, uint16_t fallback) {
@@ -134,6 +191,7 @@ void Settings::setDefaults() {
   carouselSec = DEFAULT_CAROUSEL_SEC;
   carouselUsage = true;
   carouselClock = true;
+  carouselWeather = true;
   httpTimeout = DEFAULT_HTTP_TIMEOUT;
 
   brightness = DEFAULT_BRIGHTNESS;
@@ -143,6 +201,7 @@ void Settings::setDefaults() {
 
   usage.setDefaults();
   clockFace.setDefaults();
+  weather.setDefaults();
   clock.setDefaults();
 }
 
@@ -210,10 +269,12 @@ void settingsToJson(const Settings& s, JsonObject root, bool includeSecrets) {
 
   // Mode + shared HTTP/display
   root["mode"]              = (s.mode == MODE_CAROUSEL) ? "carousel"
-                            : (s.mode == MODE_CLOCK)    ? "clock" : "usage";
+                            : (s.mode == MODE_CLOCK)    ? "clock"
+                            : (s.mode == MODE_WEATHER)  ? "weather" : "usage";
   root["carouselSec"]       = s.carouselSec;
   root["carouselUsage"]     = s.carouselUsage;
   root["carouselClock"]     = s.carouselClock;
+  root["carouselWeather"]   = s.carouselWeather;
   root["httpTimeout"]       = s.httpTimeout;
   root["brightness"]        = s.brightness;
   root["autoBrightness"]    = s.autoBrightness;
@@ -223,6 +284,7 @@ void settingsToJson(const Settings& s, JsonObject root, bool includeSecrets) {
   // Feature slices
   s.usage.toJson(root["usage"].to<JsonObject>());
   s.clockFace.toJson(root["clockFace"].to<JsonObject>());
+  s.weather.toJson(root["weather"].to<JsonObject>());
   s.clock.toJson(root["clock"].to<JsonObject>());
 }
 
@@ -272,13 +334,15 @@ void settingsApplyJson(Settings& s, JsonObjectConst root) {
 
   if (root["mode"].is<const char*>()) {
     String m = root["mode"].as<String>();
-    // Retired modes (stocks/radar) fall back to usage; carousel and clock are valid.
+    // Retired modes (stocks/radar) fall back to usage; carousel/clock/weather are valid.
     s.mode = m.equalsIgnoreCase("carousel") ? MODE_CAROUSEL
-           : m.equalsIgnoreCase("clock")    ? MODE_CLOCK : MODE_USAGE;
+           : m.equalsIgnoreCase("clock")    ? MODE_CLOCK
+           : m.equalsIgnoreCase("weather")  ? MODE_WEATHER : MODE_USAGE;
   }
   if (root["carouselSec"].is<int>())      s.carouselSec = constrain((int)root["carouselSec"], 5, 3600);
   if (root["carouselUsage"].is<bool>())   s.carouselUsage = root["carouselUsage"];
   if (root["carouselClock"].is<bool>())   s.carouselClock = root["carouselClock"];
+  if (root["carouselWeather"].is<bool>()) s.carouselWeather = root["carouselWeather"];
 
   if (root["httpTimeout"].is<int>())        s.httpTimeout = constrain((int)root["httpTimeout"], 1000, 20000);
   if (root["brightness"].is<int>())         s.brightness = constrain((int)root["brightness"], 0, 100);
@@ -291,5 +355,6 @@ void settingsApplyJson(Settings& s, JsonObjectConst root) {
   JsonObjectConst u = root["usage"].is<JsonObjectConst>() ? root["usage"].as<JsonObjectConst>() : root;
   s.usage.fromJson(u);
   if (root["clockFace"].is<JsonObjectConst>()) s.clockFace.fromJson(root["clockFace"].as<JsonObjectConst>());
+  if (root["weather"].is<JsonObjectConst>()) s.weather.fromJson(root["weather"].as<JsonObjectConst>());
   if (root["clock"].is<JsonObjectConst>()) s.clock.fromJson(root["clock"].as<JsonObjectConst>());
 }
