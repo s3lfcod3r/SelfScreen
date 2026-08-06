@@ -76,7 +76,7 @@ static bool applyWeatherDoc(WeatherData& d, JsonDocument& doc) {
   return true;
 }
 
-static bool parseWeather(WeatherData& d, Stream& stream) {
+static bool parseWeather(WeatherData& d, const String& body) {
   // Filter: only current.{temperature_2m,precipitation,weather_code} +
   // hourly.temperature_2m survive deserialization, so the doc stays tiny.
   JsonDocument filter;
@@ -87,7 +87,7 @@ static bool parseWeather(WeatherData& d, Stream& stream) {
   filter["hourly"]["temperature_2m"] = true;
 
   JsonDocument doc;
-  if (deserializeJson(doc, stream, DeserializationOption::Filter(filter))) return false;
+  if (deserializeJson(doc, body, DeserializationOption::Filter(filter))) return false;
   return applyWeatherDoc(d, doc);
 }
 
@@ -114,9 +114,12 @@ static bool fetchWeather(const Settings& s) {
   int code = http.GET();
   if (code != HTTP_CODE_OK) { http.end(); return false; }
 
-  bool ok = parseWeather(g_wx, http.getStream());
+  // Open-Meteo replies with Transfer-Encoding: chunked. HTTPClient::getString()
+  // de-chunks into a String; feeding the raw getStream() to the JSON parser would
+  // choke on the chunk-size lines. The body is tiny (~800 B), so this is cheap.
+  String body = http.getString();
   http.end();
-  return ok;
+  return parseWeather(g_wx, body);
 }
 
 // ---------------------------------------------------------------------------
