@@ -46,10 +46,13 @@ static DisplayMode* kModes[] = {
 static const size_t kModeCount = sizeof(kModes) / sizeof(kModes[0]);
 
 // ---- carousel -------------------------------------------------------------
-// MODE_CAROUSEL rotates through the ticked features. Switches call wake() on
+// MODE_CAROUSEL rotates through the ticked features, in the user's per-screen
+// order (ascending; ties fall back to registry order). Switches call wake() on
 // the incoming mode: repaint from cached data, no refetch.
 static size_t   g_carIdx = 0;
 static uint32_t g_carSwitch = 0;
+
+static const int CAR_NONE = 0x7fffffff;   // sentinel "no candidate" sort key
 
 static bool carouselHas(const Settings& s, const DisplayMode* m) {
   switch (m->modeConst()) {
@@ -60,22 +63,59 @@ static bool carouselHas(const Settings& s, const DisplayMode* m) {
   }
 }
 
-// Advance g_carIdx to the next ticked mode (stays put if none other is ticked).
-static void carouselNext(const Settings& s) {
-  for (size_t hop = 1; hop <= kModeCount; hop++) {
-    size_t cand = (g_carIdx + hop) % kModeCount;
-    if (!carouselHas(s, kModes[cand])) continue;
-    if (cand != g_carIdx) {
-      g_carIdx = cand;
-      kModes[cand]->wake(s);
-    }
-    return;
+// Per-screen rotation order (1..N). Unknown modes sort last.
+static uint8_t carouselOrder(const Settings& s, const DisplayMode* m) {
+  switch (m->modeConst()) {
+    case MODE_CLOCK:   return s.carouselOrderClock;
+    case MODE_WEATHER: return s.carouselOrderWeather;
+    case MODE_USAGE:   return s.carouselOrderUsage;
+    default:           return 255;
   }
+}
+
+// Total-order sort key: primary = user order, tie-break = registry index. Packing
+// (order<<8 | idx) makes it a single comparable int (idx < 256, order 1..255).
+static int carouselKey(const Settings& s, size_t idx) {
+  return ((int)carouselOrder(s, kModes[idx]) << 8) | (int)idx;
+}
+
+// Advance g_carIdx to the next enabled screen by ascending sort key, wrapping
+// around to the lowest key. Stays put if nothing else is enabled.
+static void carouselNext(const Settings& s) {
+  int curKey  = carouselKey(s, g_carIdx);
+  int nextKey = CAR_NONE; size_t nextIdx = g_carIdx;   // smallest key strictly > current
+  int minKey  = CAR_NONE; size_t minIdx  = g_carIdx;   // smallest key overall (wrap target)
+  for (size_t i = 0; i < kModeCount; i++) {
+    if (!carouselHas(s, kModes[i])) continue;
+    int k = carouselKey(s, i);
+    if (k < minKey) { minKey = k; minIdx = i; }
+    if (k > curKey && k < nextKey) { nextKey = k; nextIdx = i; }
+  }
+  size_t cand = (nextKey != CAR_NONE) ? nextIdx : minIdx;
+  if (cand != g_carIdx) {
+    g_carIdx = cand;
+    kModes[cand]->wake(s);
+  }
+}
+
+// Jump to the lowest-order enabled screen (used when carousel first goes active).
+static void carouselReset(const Settings& s) {
+  int minKey = CAR_NONE; size_t minIdx = 0;
+  for (size_t i = 0; i < kModeCount; i++) {
+    if (!carouselHas(s, kModes[i])) continue;
+    int k = carouselKey(s, i);
+    if (k < minKey) { minKey = k; minIdx = i; }
+  }
+  g_carIdx = minIdx;
 }
 
 static DisplayMode* activeMode(const Settings& s) {
   if (s.mode == MODE_CAROUSEL && kModeCount > 0) {
-    if (g_carSwitch == 0) g_carSwitch = millis();
+    if (g_carSwitch == 0) {                 // first tick in carousel: start at lowest order
+      g_carSwitch = millis();
+      carouselReset(s);
+      kModes[g_carIdx]->wake(s);
+    }
     if (!carouselHas(s, kModes[g_carIdx])) carouselNext(s);   // settings changed
     if (millis() - g_carSwitch >= (uint32_t)s.carouselSec * 1000UL) {
       g_carSwitch = millis();

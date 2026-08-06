@@ -102,6 +102,11 @@ struct Settings {
   bool carouselUsage;
   bool carouselClock;
   bool carouselWeather;
+  // Rotation order of the enabled screens (1..N, ascending = shown first). Ties
+  // fall back to registry order. Defaults: Clock 1, Weather 2, Usage 3.
+  uint8_t carouselOrderClock;
+  uint8_t carouselOrderWeather;
+  uint8_t carouselOrderUsage;
 
   // --- Shared HTTP / display ---
   uint16_t httpTimeout; // ms

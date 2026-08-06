@@ -192,6 +192,9 @@ void Settings::setDefaults() {
   carouselUsage = true;
   carouselClock = true;
   carouselWeather = true;
+  carouselOrderClock   = 1;
+  carouselOrderWeather = 2;
+  carouselOrderUsage   = 3;
   httpTimeout = DEFAULT_HTTP_TIMEOUT;
 
   brightness = DEFAULT_BRIGHTNESS;
@@ -271,10 +274,13 @@ void settingsToJson(const Settings& s, JsonObject root, bool includeSecrets) {
   root["mode"]              = (s.mode == MODE_CAROUSEL) ? "carousel"
                             : (s.mode == MODE_CLOCK)    ? "clock"
                             : (s.mode == MODE_WEATHER)  ? "weather" : "usage";
-  root["carouselSec"]       = s.carouselSec;
-  root["carouselUsage"]     = s.carouselUsage;
-  root["carouselClock"]     = s.carouselClock;
-  root["carouselWeather"]   = s.carouselWeather;
+  root["carouselSec"]         = s.carouselSec;
+  root["carouselUsage"]       = s.carouselUsage;
+  root["carouselClock"]       = s.carouselClock;
+  root["carouselWeather"]     = s.carouselWeather;
+  root["carouselOrderClock"]   = s.carouselOrderClock;
+  root["carouselOrderWeather"] = s.carouselOrderWeather;
+  root["carouselOrderUsage"]   = s.carouselOrderUsage;
   root["httpTimeout"]       = s.httpTimeout;
   root["brightness"]        = s.brightness;
   root["autoBrightness"]    = s.autoBrightness;
@@ -343,6 +349,11 @@ void settingsApplyJson(Settings& s, JsonObjectConst root) {
   if (root["carouselUsage"].is<bool>())   s.carouselUsage = root["carouselUsage"];
   if (root["carouselClock"].is<bool>())   s.carouselClock = root["carouselClock"];
   if (root["carouselWeather"].is<bool>()) s.carouselWeather = root["carouselWeather"];
+  // Rotation order (1..3). Absent keys keep the defaults set above (graceful
+  // migration from a config.json written before this field existed).
+  if (root["carouselOrderClock"].is<int>())   s.carouselOrderClock   = (uint8_t)constrain((int)root["carouselOrderClock"],   1, 3);
+  if (root["carouselOrderWeather"].is<int>()) s.carouselOrderWeather = (uint8_t)constrain((int)root["carouselOrderWeather"], 1, 3);
+  if (root["carouselOrderUsage"].is<int>())   s.carouselOrderUsage   = (uint8_t)constrain((int)root["carouselOrderUsage"],   1, 3);
 
   if (root["httpTimeout"].is<int>())        s.httpTimeout = constrain((int)root["httpTimeout"], 1000, 20000);
   if (root["brightness"].is<int>())         s.brightness = constrain((int)root["brightness"], 0, 100);

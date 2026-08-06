@@ -108,6 +108,57 @@ static void drawFontCentered(Arduino_GFX* gfx, const char* s, int bandY, int ban
   gfx->print(s);
 }
 
+// Draw the time string with tight, proportional spacing (currently-set U8g2 font).
+//
+// The logisoso number fonts are monospaced: every glyph — including the narrow
+// "1" and the colon — is padded to a full digit cell, which leaves an ugly gap
+// around 1s and next to ":". Here each character is instead measured to its real
+// ink width (getTextBounds of the single glyph) and advanced by ink + kern, so a
+// "1" takes less room than a "2" and the colon sits snug. The whole run is
+// measured first, then centred as a group. Vertical placement uses the full
+// string's bounds so every glyph shares one baseline (digits + colon align).
+static void drawTimeTight(Arduino_GFX* gfx, const char* s, int bandY, int bandH,
+                          uint16_t color) {
+  // One baseline for the entire run: measure the whole string's ink box and
+  // derive the cursor Y once, so short glyphs (":") align with the digits.
+  int16_t fx1, fy1; uint16_t fw, fh;
+  gfx->getTextBounds(s, 0, 0, &fx1, &fy1, &fw, &fh);
+  int cy = bandY + (bandH - (int)fh) / 2 - fy1;
+
+  // Kern scales with the font size so the inter-glyph gap looks even across the
+  // whole size slider (16 px .. 78 px). Clamped to a sensible pixel range.
+  int kern = bandH / 12;
+  if (kern < 2) kern = 2;
+  if (kern > 7) kern = 7;
+
+  // Pass 1: total packed width = sum of ink widths + kern between glyphs.
+  int total = 0, n = 0;
+  for (const char* p = s; *p; ++p) {
+    char c[2] = { *p, 0 };
+    int16_t x1, y1; uint16_t w, h;
+    gfx->getTextBounds(c, 0, 0, &x1, &y1, &w, &h);
+    total += (int)w;
+    n++;
+  }
+  if (n > 1) total += kern * (n - 1);
+
+  // Pass 2: lay glyphs left-to-right from the centred start. Each glyph's ink
+  // left edge lands on the running pen (cursor = pen - the glyph's ink bearing),
+  // then the pen advances by ink + kern. By construction the run spans exactly
+  // `total`, so start = (WIDTH - total)/2 centres it; if a huge size + seconds
+  // overflows 236 px the run just clips symmetrically (documented trade-off).
+  int penX = (TFT_WIDTH - total) / 2;
+  gfx->setTextColor(color);
+  for (const char* p = s; *p; ++p) {
+    char c[2] = { *p, 0 };
+    int16_t x1, y1; uint16_t w, h;
+    gfx->getTextBounds(c, 0, 0, &x1, &y1, &w, &h);
+    gfx->setCursor(penX - x1, cy);
+    gfx->print(c);
+    penX += (int)w + kern;
+  }
+}
+
 void ClockMode::begin(const Settings& s) {
   needFull_ = true;
   lastTime_[0] = lastDate_[0] = lastWd_[0] = 0;
@@ -196,7 +247,7 @@ void ClockMode::service(const Settings& s) {
   if (needFull_ || strcmp(tm, lastTime_) != 0) {
     clearBand(gfx, yTime_, hTime_);
     gfx->setFont(timeFont);
-    drawFontCentered(gfx, tm, yTime_, hTime_, timeCol);
+    drawTimeTight(gfx, tm, yTime_, hTime_, timeCol);
     if (hAp_) {
       clearBand(gfx, yAp_, hAp_);
       if (ap[0]) { gfx->setFont(apFont); drawFontCentered(gfx, ap, yAp_, hAp_, timeCol); }

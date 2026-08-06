@@ -36,6 +36,10 @@ input[type=range]{width:100%}
 .chk{display:flex;align-items:center;gap:8px;margin:8px 0}
 .chk input{width:18px;height:18px}
 .chk label{margin:0;color:var(--fg);font-size:14px}
+.carrow{display:flex;align-items:center;gap:10px;margin:8px 0}
+.carrow>input[type=checkbox]{width:18px;height:18px;flex:none}
+.carrow>span.nm{flex:1;color:var(--fg);font-size:14px}
+.carrow>input[type=number]{width:64px;flex:none;padding:6px 8px}
 button.btn{background:var(--acc);color:#04130a;border:0;padding:10px 16px;border-radius:9px;font-size:15px;font-weight:600;cursor:pointer}
 button.btn.sec{background:#222b36;color:var(--fg)}
 button.btn.danger{background:var(--red);color:#1a0606}
@@ -104,13 +108,16 @@ small.hint{display:block;color:var(--mut);margin-top:4px;font-size:12px}
     <option value="usage">Claude usage</option>
     <option value="carousel">Carousel (rotate modes)</option>
    </select>
-   <div id="carouselRow">
-    <label>Switch mode every (s)</label><input id="carouselSec" type="number" min="5" max="3600">
-    <div class="chk"><input id="carouselClock" type="checkbox"><label>Clock</label></div>
-    <div class="chk"><input id="carouselWeather" type="checkbox"><label>Weather</label></div>
-    <div class="chk"><input id="carouselUsage" type="checkbox"><label>Claude usage</label></div>
+   <div id="carouselRow" class="card" style="margin:12px 0 0;background:#0b0e13">
+    <h2 style="margin-top:0">Carousel</h2>
+    <small class="hint" style="margin-top:0">Only used when Mode is set to <b>Carousel</b> (above). The device rotates through the ticked screens, waiting the dwell time on each, in the order you choose (1 = shown first).</small>
+    <label>Dwell &mdash; switch every (s)</label><input id="carouselSec" type="number" min="5" max="3600">
+    <label>Screens in rotation <span class="muted">(tick to include &middot; number = position)</span></label>
+    <div class="carrow"><input id="carouselClock" type="checkbox"><span class="nm">Clock</span><input id="carouselOrderClock" type="number" min="1" max="3"></div>
+    <div class="carrow"><input id="carouselWeather" type="checkbox"><span class="nm">Weather</span><input id="carouselOrderWeather" type="number" min="1" max="3"></div>
+    <div class="carrow"><input id="carouselUsage" type="checkbox"><span class="nm">Claude usage</span><input id="carouselOrderUsage" type="number" min="1" max="3"></div>
    </div>
-   <small class="hint">Pick the active feature, then configure it in its own tab. Carousel rotates through the ticked features.</small>
+   <small class="hint">Pick the active feature, then configure it in its own tab.</small>
   </div>
   <div class="card"><h2>Screen</h2>
    <label>Brightness: <span id="brVal"></span>%</label>
@@ -374,6 +381,9 @@ function loadConfig(){return j('/api/config').then(function(c){C=c;
  sc('carouselClock',c.carouselClock!==false);
  sc('carouselWeather',c.carouselWeather!==false);
  sc('carouselUsage',c.carouselUsage!==false);
+ sv('carouselOrderClock',c.carouselOrderClock!=null?c.carouselOrderClock:1);
+ sv('carouselOrderWeather',c.carouselOrderWeather!=null?c.carouselOrderWeather:2);
+ sv('carouselOrderUsage',c.carouselOrderUsage!=null?c.carouselOrderUsage:3);
  // clock face slice
  var cf=c.clockFace||{};
  sc('clk24',cf.hour24!==false); sc('clkSeconds',!!cf.showSeconds); sc('clkWeekday',cf.showWeekday!==false);
@@ -410,6 +420,9 @@ function collect(){
   carouselClock:gc('carouselClock'),
   carouselWeather:gc('carouselWeather'),
   carouselUsage:gc('carouselUsage'),
+  carouselOrderClock:parseInt(gv('carouselOrderClock'))||1,
+  carouselOrderWeather:parseInt(gv('carouselOrderWeather'))||2,
+  carouselOrderUsage:parseInt(gv('carouselOrderUsage'))||3,
   brightness:parseInt(gv('brightness'))||0,
   rotation:parseInt(gv('rotation')),
   autoBrightness:gc('autoBrightness'),
